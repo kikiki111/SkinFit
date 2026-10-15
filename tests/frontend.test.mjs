@@ -209,17 +209,17 @@ test("product photos accept saved assets and https images only", () => {
     ["https://item.rakuten.co.jp/shop/x/"],
   );
   const registered = card({
-    src: "/assets/products/chifure-rich.png",
-    source_url: "https://www.chifure.co.jp/products/essence/2634",
-    credit: "ちふれ 公式サイト",
+    src: "https://maker.example/lotion.jpg",
+    source_url: "https://maker.example/lotion",
+    credit: "メーカー 公式サイト",
   });
-  assert.match(registered, /src="\/assets\/products\/chifure-rich\.png"/);
-  assert.match(registered, /ちふれ 公式サイト/);
+  assert.match(registered, /src="https:\/\/maker\.example\/lotion\.jpg"/);
+  assert.match(registered, /メーカー 公式サイト/);
   for (const src of [
     "http://example.com/x.jpg",
     "javascript:alert(1)",
     "data:image/png;base64,AA",
-    "/assets/products/../secret.png",
+    "/assets/products/a.png",
   ]) {
     const html = card({ src, source_url: "https://example.com", credit: "c" });
     assert(!html.includes("<img"), src);
@@ -260,7 +260,7 @@ test("only registered photos are labelled as the official product page", () => {
   };
   assert.match(
     linkFor({
-      src: "/assets/products/a.png",
+      src: "https://maker.example/a.png",
       source_url: "https://maker.example/p",
       credit: "c",
     }),

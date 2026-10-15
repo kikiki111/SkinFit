@@ -156,9 +156,9 @@ def test_refill_product_can_match_refill_listing():
 
 
 def test_product_media_accepts_only_safe_urls():
-    assert ProductMedia(src="/assets/products/chifure-rich.png", source_url="https://example.com", credit="c").provider == "registered"
+    assert ProductMedia(src="https://maker.example/lotion.jpg", source_url="https://example.com", credit="c").provider == "registered"
     assert ProductMedia(src=YAHOO_IMG, source_url="https://example.com", credit="c", provider="yahoo").src == YAHOO_IMG
-    for src in ("javascript:alert(1)", "http://example.com/a.jpg", "/assets/products/../../etc.png", "data:image/png;base64,AA"):
+    for src in ("javascript:alert(1)", "http://example.com/a.jpg", "/assets/products/a.png", "data:image/png;base64,AA"):
         with pytest.raises(ValidationError):
             ProductMedia(src=src, source_url="https://example.com", credit="c")
     with pytest.raises(ValidationError):

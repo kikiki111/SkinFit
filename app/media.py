@@ -1,12 +1,11 @@
-"""商品写真の解決。人が公式ページで確かめた登録画像を優先し、なければ公式API（Yahoo!・楽天）で照合した画像を使う。
+"""商品写真の解決。登録データの公式画像URLを優先し、なければ公式API（Yahoo!・楽天）で照合した画像を使う。
+
+メーカーの画像ファイルはリポジトリに置かない（公式サイトの規約で複製・転載を禁じているため）。
 
 モデルが書いたURLや、Google検索連携のリンク先から取った画像は使わない（検索連携の規約でリンク先の自動取得を禁じているため）。
 """
-import json
 import re
 import unicodedata
-from functools import lru_cache
-from .config import settings
 
 
 def _key(text: str) -> str:
@@ -26,21 +25,6 @@ def product_key(brand: str | None, name: str) -> str:
     return f"{_key(brand or '')}|{_key(strip_brand(brand or '', name))}"
 
 
-@lru_cache(maxsize=1)
-def _manifest():
-    return json.loads((settings.web_dir / "assets/products/manifest.json").read_text())
-
-
-def media_for(brand: str, name: str):
-    for entry in _manifest():
-        if _key(brand) == _key(entry["brand"]) and _key(name) == _key(entry["name"]):
-            return {k: entry[k] for k in ("src", "source_url", "credit")}
-    return None
-
-
 def media_of(product):
-    """manifest.json の登録画像を優先し、なければ製品が持つ写真（登録データの公式画像URL・公式APIの画像）を返す。"""
-    registered = media_for(product.brand, product.name)
-    if registered:
-        return registered
+    """製品が持つ写真（登録データの公式画像URL・公式APIの画像）を返す。"""
     return product.media.model_dump() if product.media else None

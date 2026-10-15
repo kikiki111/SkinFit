@@ -24,7 +24,6 @@ def _example(name: str):
     if isinstance(data, dict) and data.get("status") == "RECOMMENDATION_READY":
         # 保存時点の古い配置ルールを画面確認に持ち込まない。
         from .catalog import catalog_from_bundle
-        from .media import media_for
         from .routine import current_routine, simulate_routine
 
         bundle = data.get("analysis", {}).get("bundle")
@@ -34,8 +33,6 @@ def _example(name: str):
             plans = [current_routine(cat, ids)]
             plans += [simulate_routine(cat, ids, keep, c["product_id"]) for c in data["candidates"]]
             data["routines"] = [p.model_dump() for p in plans]
-        for candidate in data["candidates"]:
-            candidate["media"] = media_for(candidate["brand"], candidate["name"])
     return data
 
 

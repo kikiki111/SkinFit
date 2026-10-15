@@ -943,11 +943,10 @@ $("btn-preview").addEventListener("click", () =>
     showSection("candidates");
   }),
 );
-// 商品写真は、保存済みの登録画像か https の画像だけを表示する（Yahoo!・楽天の公式APIの画像、登録データの公式画像URL）
+// 商品写真は、https の画像だけを表示する（Yahoo!・楽天の公式APIの画像、登録データの公式画像URL）
 function mediaSrc(media) {
   const src = media?.src;
   if (!src) return null;
-  if (/^\/assets\/products\/[a-z0-9-]+\.(png|jpg|webp)$/.test(src)) return src;
   try {
     const url = new URL(src);
     return url.protocol === "https:" ? url.href : null;

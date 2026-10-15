@@ -52,8 +52,15 @@ def test_sources_and_references_are_complete():
 
 
 def test_no_grounding_redirects_in_registered_data():
-    """Google検索連携の結果は規約で保存できない。登録データと写真の一覧に、検索連携の転送URLを入れない。"""
+    """Google検索連携の結果は規約で保存できない。登録データに、検索連携の転送URLを入れない。"""
     from app.catalog import grounding_urls
-    files = sorted(DATA.glob("*.json")) + [DATA.parent / "web" / "assets" / "products" / "manifest.json"]
+    files = sorted(DATA.glob("*.json"))
     found = {f.name: grounding_urls(json.loads(f.read_text(encoding="utf-8"))) for f in files}
     assert not any(found.values()), {k: v[:3] for k, v in found.items() if v}
+
+
+def test_no_image_files_in_web():
+    """メーカー公式の写真は規約で複製・転載を禁じている。公開リポジトリに入るので、web/ に画像ファイルを置かない。"""
+    web = DATA.parent / "web"
+    images = [p.relative_to(web) for p in web.rglob("*") if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"}]
+    assert not images, images

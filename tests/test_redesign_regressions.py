@@ -10,7 +10,6 @@ from app import assemble, normalize, orchestrator, research, routine
 from app.catalog import load, search_candidates
 from app.config import settings
 from app.main import app
-from app.media import media_for
 from app.ranking import RankInput, rank
 from app.schemas import Conditions, OwnedItem, RecommendRequest, RerankRequest, Usage
 from tests.helpers import DIRECTIONS, demo_request, keyword_findings
@@ -142,12 +141,6 @@ def test_invalid_rerank_bundle_returns_validation_error():
     body=demo_request().model_dump(); body['analysis']={'bundle':{'owned':[{'name':'invalid'}]}}
     response=TestClient(app).post('/api/rerank',json=body)
     assert response.status_code == 422
-
-
-def test_media_requires_exact_product_match():
-    assert media_for('ちふれ','濃厚 美容液')['src'].endswith('.png')
-    assert media_for('ちふれ','濃厚 美容液 詰替用') is None
-    assert media_for('別ブランド','濃厚 美容液') is None
 
 
 def test_preview_is_explicit_and_does_not_fabricate_reviews():

@@ -1,6 +1,5 @@
 """データとAPIの型。画面担当とサーバーの取り決めはこのファイルと tests/fixtures/api_examples.json。"""
 
-import re
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -45,9 +44,6 @@ class Unknown(BaseModel):
     reason: str
 
 
-LOCAL_MEDIA = re.compile(r"/assets/products/[a-z0-9-]+\.(png|jpg|webp)")
-
-
 class ProductMedia(BaseModel):
     """商品写真。registered は人が公式ページで確かめた画像、yahoo / rakuten は各社の公式APIで照合した画像。"""
 
@@ -60,10 +56,10 @@ class ProductMedia(BaseModel):
     @field_validator("src")
     @classmethod
     def safe_src(cls, value: str) -> str:
-        # 画面に出すURLなので、保存済みの画像か https の画像だけを通す（rerankでクライアントから届く値も含む）
-        if LOCAL_MEDIA.fullmatch(value) or (value.startswith("https://") and len(value) <= 2048):
+        # 画面に出すURLなので、https の画像だけを通す（rerankでクライアントから届く値も含む）
+        if value.startswith("https://") and len(value) <= 2048:
             return value
-        raise ValueError("画像のURLは /assets/products/ の画像か https のURLにしてください")
+        raise ValueError("画像のURLは https のURLにしてください")
 
     @field_validator("source_url")
     @classmethod
