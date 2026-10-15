@@ -1,0 +1,294 @@
+[
+  {
+    "product_id": "cand_chifure_noukou",
+    "is_dummy": false,
+    "role": "candidate",
+    "demo_role": "A",
+    "brand": "ちふれ",
+    "maker": "ちふれ化粧品",
+    "name": "濃厚 美容液",
+    "variant": null,
+    "region": "JP",
+    "category": "serum",
+    "regulatory_class": "cosmetic",
+    "active_ingredients": [],
+    "volume": {"value": 30, "unit": "mL"},
+    "price_jpy_tax_included": 1100,
+    "price_note": "本体価格（税込）",
+    "price_source_id": "src_chifure_noukou_page",
+    "ingredients_full": [
+      "ジエチルヘキサン酸ネオペンチルグリコール",
+      "スクワラン",
+      "ミネラルオイル",
+      "ホホバ種子油",
+      "セテアリルアルコール",
+      "ジメチコン",
+      "BG",
+      "グリセリン",
+      "ヒアルロン酸Na",
+      "シャクヤク根エキス",
+      "イソステアリン酸PEG-60グリセリル",
+      "ステアリン酸PEG-5グリセリル",
+      "ステアリン酸グリセリル",
+      "ステアロイルグルタミン酸Na",
+      "メチルパラベン",
+      "フェノキシエタノール",
+      "プロピルパラベン",
+      "(アクリレーツ/アクリル酸アルキル(C10-30))クロスポリマー",
+      "キサンタンガム",
+      "アルギニン",
+      "クエン酸Na",
+      "クエン酸",
+      "EDTA-2Na",
+      "トコフェロール",
+      "水"
+    ],
+    "ingredients_source_id": "src_chifure_noukou_page",
+    "claims": [
+      {
+        "claim_id": "clm_chifure_noukou_1",
+        "text": "乾燥による小ジワを目立たなくする",
+        "type": "efficacy_tested",
+        "concern_tags": ["fine_lines"],
+        "source_id": "src_chifure_noukou_page"
+      },
+      {
+        "claim_id": "clm_chifure_noukou_2",
+        "text": "エイジングケア美容液（年齢に応じた化粧品によるスキンケア）",
+        "type": "marketing",
+        "concern_tags": ["fine_lines"],
+        "source_id": "src_chifure_noukou_page"
+      }
+    ],
+    "maker_texture_description": "ミルクタイプの美容液で、ピンとしたハリ肌に。",
+    "texture_expectation": "heavy",
+    "usage": {
+      "timing": ["morning", "night"],
+      "timing_strength": "not_stated",
+      "order_note": "化粧水のあと",
+      "amount_note": "適量（ポンプ1～2回）を手にとり、やさしく顔全体にのばしなじませます。",
+      "source_id": "src_chifure_noukou_page"
+    },
+    "cautions": [],
+    "sources": [
+      {
+        "source_id": "src_chifure_noukou_page",
+        "url": "https://www.chifure.co.jp/products/essence/2634",
+        "title": "濃厚 美容液 | ちふれ化粧品",
+        "publisher": "ちふれ化粧品",
+        "checked_at": "2026-10-15"
+      }
+    ],
+    "checked_at": "2026-10-15",
+    "data_version": "2026-10-15.1",
+    "unknown": [
+      {
+        "field": "cautions",
+        "reason": "公式ページに注意事項の記載が見当たらなかった"
+      }
+    ]
+  },
+  {
+    "product_id": "cand_chifure_shuchou",
+    "is_dummy": false,
+    "role": "candidate",
+    "demo_role": "B",
+    "brand": "ちふれ",
+    "maker": "ちふれ化粧品",
+    "name": "集中 保湿美容液",
+    "variant": null,
+    "region": "JP",
+    "category": "serum",
+    "regulatory_class": "cosmetic",
+    "active_ingredients": [],
+    "volume": {"value": 45, "unit": "mL"},
+    "price_jpy_tax_included": 880,
+    "price_note": "本体価格（税込）",
+    "price_source_id": "src_chifure_shuchou_page",
+    "ingredients_full": [
+      "BG",
+      "グリセリン",
+      "トレハロース",
+      "ヒアルロン酸Na",
+      "ポリクオタニウム-51",
+      "PEG-60水添ヒマシ油",
+      "メチルパラベン",
+      "ヒドロキシエチルセルロース",
+      "水"
+    ],
+    "ingredients_source_id": "src_chifure_shuchou_page",
+    "claims": [
+      {
+        "claim_id": "clm_chifure_shuchou_1",
+        "text": "乾燥などで肌あれ・ごわつきが気になる肌に、集中保湿ケア",
+        "type": "marketing",
+        "concern_tags": ["dryness"],
+        "source_id": "src_chifure_shuchou_page"
+      },
+      {
+        "claim_id": "clm_chifure_shuchou_2",
+        "text": "ヒアルロン酸、トレハロースが角層に水分を与え、しっとりもちもちの肌へ",
+        "type": "marketing",
+        "concern_tags": ["dryness"],
+        "source_id": "src_chifure_shuchou_page"
+      }
+    ],
+    "maker_texture_description": "ベタつきがなく軽やかな使い心地で、角層深くまで浸透。",
+    "texture_expectation": "light",
+    "usage": {
+      "timing": ["morning", "night"],
+      "timing_strength": "not_stated",
+      "order_note": null,
+      "amount_note": null,
+      "source_id": "src_chifure_shuchou_page"
+    },
+    "cautions": [],
+    "sources": [
+      {
+        "source_id": "src_chifure_shuchou_page",
+        "url": "https://www.chifure.co.jp/products/essence/2928",
+        "title": "集中 保湿美容液 | ちふれ化粧品",
+        "publisher": "ちふれ化粧品",
+        "checked_at": "2026-10-15"
+      }
+    ],
+    "checked_at": "2026-10-15",
+    "data_version": "2026-10-15.1",
+    "unknown": [
+      {
+        "field": "usage.order_note",
+        "reason": "使用順序の具体的な記載が公式ページに見当たらなかった"
+      },
+      {
+        "field": "usage.amount_note",
+        "reason": "使用量の具体的な記載が公式ページに見当たらなかった"
+      },
+      {
+        "field": "cautions",
+        "reason": "公式ページに注意事項の記載が見当たらなかった"
+      }
+    ]
+  },
+  {
+    "product_id": "cand_kikumasa_na5",
+    "is_dummy": false,
+    "role": "candidate",
+    "demo_role": "C",
+    "brand": "菊正宗",
+    "maker": "菊正宗酒造",
+    "name": "日本酒の美容液NA5",
+    "variant": null,
+    "region": "JP",
+    "category": "serum",
+    "regulatory_class": "cosmetic",
+    "active_ingredients": [],
+    "volume": {"value": 150, "unit": "mL"},
+    "price_jpy_tax_included": 2090,
+    "price_note": "通販価格（税込）",
+    "price_source_id": "src_kikumasa_na5_page",
+    "ingredients_full": [
+      "水",
+      "グリセリン",
+      "BG",
+      "ナイアシンアミド",
+      "コメ発酵液",
+      "グルタミン酸",
+      "アルギニン",
+      "グリシン",
+      "アスパラギン酸",
+      "セリン",
+      "バリン",
+      "プロリン",
+      "イソロイシン",
+      "トレオニン",
+      "ヒスチジン",
+      "アラニン",
+      "フェニルアラニン",
+      "セラミドEOP",
+      "セラミドNP",
+      "セラミドAP",
+      "アスコルビルグルコシド",
+      "リン酸アスコルビルMg",
+      "3-0-エチルアスコルビン酸",
+      "プラセンタエキス",
+      "アルブチン",
+      "グリチルリチン酸2K",
+      "バクチオール",
+      "加水分解酵母",
+      "スクワラン",
+      "トリエチルヘキサノイン",
+      "イソステアリン酸",
+      "ラウロイルグルタミン酸ジ(フィトステリル/オクチルドデシル)",
+      "コレステロール",
+      "フィトスフィンゴシン",
+      "乳酸Na",
+      "PCA",
+      "PCA-Na",
+      "ラウロイルラクチレートNa",
+      "ポリソルベート20",
+      "ポリソルベート60",
+      "PEG-60水添ヒマシ油",
+      "イソステアリン酸ソルビタン",
+      "カルボマー",
+      "キサンタンガム",
+      "(アクリレーツ/アクリル酸アルキル(C10-30))クロスポリマー",
+      "(アクリル酸ヒドロキシエチル/アクリロイルジメチルタウリンNa)コポリマー",
+      "トコフェロール",
+      "エチルヘキシルグリセリン",
+      "EDTA-2Na",
+      "フィチン酸",
+      "水酸化K",
+      "酸化銀",
+      "フェノキシエタノール",
+      "香料"
+    ],
+    "ingredients_source_id": "src_kikumasa_na5_page",
+    "claims": [
+      {
+        "claim_id": "clm_kikumasa_na5_1",
+        "text": "ハリつや保湿",
+        "type": "marketing",
+        "concern_tags": ["dryness"],
+        "source_id": "src_kikumasa_na5_page"
+      },
+      {
+        "claim_id": "clm_kikumasa_na5_2",
+        "text": "シリーズ史上、最高の保湿力",
+        "type": "marketing",
+        "concern_tags": ["dryness"],
+        "source_id": "src_kikumasa_na5_page"
+      }
+    ],
+    "maker_texture_description": "とろみのある濃密なテクスチャーで、しっとり潤い、肌にハリやつやを与える。",
+    "texture_expectation": "heavy",
+    "usage": {
+      "timing": ["morning", "night"],
+      "timing_strength": "not_stated",
+      "order_note": "化粧水の後、「菊正宗 スキンケアエマルジョン」の前",
+      "amount_note": "適量(２～３プッシュ)を手にとり、顔全体になじませる。顔はもちろん、首筋やデコルテ・全身にも使用可。",
+      "source_id": "src_kikumasa_na5_page"
+    },
+    "cautions": [
+      "本品は食品ではありませんので飲めません。",
+      "肌に異常が生じていないかよく注意して使用してください。",
+      "傷、はれもの、しっしんなどの症状があるときにはお使いにならないでください。",
+      "使用中に赤み、はれ、かゆみ、刺激、色抜け（白斑等）や黒ずみなどの異常があらわれた場合、また、使用後の肌に直射日光があたってそのような症状があらわれた場合は使用を中止し、皮フ科専門医などにご相談ください。そのまま使用を続けると症状を悪化させることがあります。",
+      "目に入った場合は、すぐに洗い流してください。",
+      "直射日光のあたる場所や、極端に高温または低温の場所には保管しないでください。",
+      "お子様の手の届くところには保管しないでください。",
+      "ポンプはゆっくりと押してください。強く押すと内容物が勢いよく出て、飛び散る可能性があります。"
+    ],
+    "sources": [
+      {
+        "source_id": "src_kikumasa_na5_page",
+        "url": "https://www.kikumasamune.shop/c/cosmeandbath/serum/nkm38",
+        "title": "菊正宗 日本酒の美容液NA5 150mL | 菊正宗オンラインショップ",
+        "publisher": "菊正宗酒造",
+        "checked_at": "2026-10-15"
+      }
+    ],
+    "checked_at": "2026-10-15",
+    "data_version": "2026-10-15.1",
+    "unknown": []
+  }
+]

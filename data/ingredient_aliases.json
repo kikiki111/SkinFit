@@ -1,0 +1,253 @@
+{
+  "data_version": "2026-10-15.1",
+  "entries": [
+    {
+      "canonical": "ナイアシンアミド",
+      "aliases": [
+        "ニコチン酸アミド",
+        "Niacinamide"
+      ],
+      "inci": "Niacinamide",
+      "direction_ids": [
+        "niacinamide"
+      ]
+    },
+    {
+      "canonical": "レチノール",
+      "aliases": [
+        "Retinol"
+      ],
+      "inci": "Retinol",
+      "direction_ids": [
+        "retinoid"
+      ]
+    },
+    {
+      "canonical": "パルミチン酸レチノール",
+      "aliases": [
+        "レチニルパルミテート",
+        "Retinyl Palmitate"
+      ],
+      "inci": "Retinyl Palmitate",
+      "direction_ids": [
+        "retinoid"
+      ]
+    },
+    {
+      "canonical": "酢酸レチノール",
+      "aliases": [
+        "レチニルアセテート",
+        "Retinyl Acetate"
+      ],
+      "inci": "Retinyl Acetate",
+      "direction_ids": [
+        "retinoid"
+      ]
+    },
+    {
+      "canonical": "ヒアルロン酸Na",
+      "aliases": [
+        "ヒアルロン酸ナトリウム",
+        "ヒアルロン酸",
+        "Sodium Hyaluronate",
+        "Hyaluronic Acid"
+      ],
+      "inci": "Sodium Hyaluronate",
+      "direction_ids": [
+        "hydration"
+      ]
+    },
+    {
+      "canonical": "加水分解ヒアルロン酸",
+      "aliases": [
+        "Hydrolyzed Hyaluronic Acid"
+      ],
+      "inci": "Hydrolyzed Hyaluronic Acid",
+      "direction_ids": [
+        "hydration"
+      ]
+    },
+    {
+      "canonical": "セラミドNP",
+      "aliases": [
+        "セラミド3",
+        "Ceramide NP",
+        "Ceramide 3"
+      ],
+      "inci": "Ceramide NP",
+      "direction_ids": [
+        "hydration"
+      ]
+    },
+    {
+      "canonical": "セラミドAP",
+      "aliases": [
+        "セラミド6II",
+        "Ceramide AP",
+        "Ceramide 6-II"
+      ],
+      "inci": "Ceramide AP",
+      "direction_ids": [
+        "hydration"
+      ]
+    },
+    {
+      "canonical": "セラミドEOP",
+      "aliases": [
+        "セラミド1",
+        "Ceramide EOP",
+        "Ceramide 1"
+      ],
+      "inci": "Ceramide EOP",
+      "direction_ids": [
+        "hydration"
+      ]
+    },
+    {
+      "canonical": "グリセリン",
+      "aliases": [
+        "濃グリセリン",
+        "Glycerin",
+        "Glycerol"
+      ],
+      "inci": "Glycerin",
+      "direction_ids": [
+        "hydration"
+      ]
+    },
+    {
+      "canonical": "BG",
+      "aliases": [
+        "1,3-ブチレングリコール",
+        "ブチレングリコール",
+        "Butylene Glycol"
+      ],
+      "inci": "Butylene Glycol",
+      "direction_ids": []
+    },
+    {
+      "canonical": "DPG",
+      "aliases": [
+        "ジプロピレングリコール",
+        "Dipropylene Glycol"
+      ],
+      "inci": "Dipropylene Glycol",
+      "direction_ids": []
+    },
+    {
+      "canonical": "ペンチレングリコール",
+      "aliases": [
+        "Pentylene Glycol"
+      ],
+      "inci": "Pentylene Glycol",
+      "direction_ids": []
+    },
+    {
+      "canonical": "水",
+      "aliases": [
+        "精製水",
+        "Water",
+        "Aqua"
+      ],
+      "inci": "Water",
+      "direction_ids": []
+    },
+    {
+      "canonical": "エタノール",
+      "aliases": [
+        "無水エタノール",
+        "Alcohol",
+        "Ethanol"
+      ],
+      "inci": "Alcohol",
+      "direction_ids": []
+    },
+    {
+      "canonical": "フェノキシエタノール",
+      "aliases": [
+        "Phenoxyethanol"
+      ],
+      "inci": "Phenoxyethanol",
+      "direction_ids": []
+    },
+    {
+      "canonical": "水添レチノール",
+      "aliases": [
+        "Hydrogenated Retinol"
+      ],
+      "inci": "Hydrogenated Retinol",
+      "direction_ids": [
+        "retinoid"
+      ]
+    },
+    {
+      "canonical": "レチナール",
+      "aliases": [
+        "Retinal"
+      ],
+      "inci": "Retinal",
+      "direction_ids": [
+        "retinoid"
+      ]
+    },
+    {
+      "canonical": "ビタミンA油",
+      "aliases": [],
+      "inci": null,
+      "direction_ids": [
+        "retinoid"
+      ]
+    },
+    {
+      "canonical": "レチノイン酸トコフェリル",
+      "aliases": [
+        "Tocopheryl Retinoate"
+      ],
+      "inci": "Tocopheryl Retinoate",
+      "direction_ids": [
+        "retinoid"
+      ]
+    },
+    {
+      "canonical": "アスコルビルグルコシド",
+      "aliases": [
+        "L-アスコルビン酸 2-グルコシド",
+        "L-アスコルビン酸2-グルコシド",
+        "アスコルビン酸2-グルコシド"
+      ],
+      "inci": "Ascorbyl Glucoside",
+      "direction_ids": []
+    },
+    {
+      "canonical": "リン酸アスコルビルMg",
+      "aliases": [
+        "リン酸L-アスコルビルマグネシウム",
+        "リン酸アスコルビルマグネシウム"
+      ],
+      "inci": "Magnesium Ascorbyl Phosphate",
+      "direction_ids": []
+    },
+    {
+      "canonical": "グリチルリチン酸2K",
+      "aliases": [
+        "グリチルリチン酸ジカリウム"
+      ],
+      "inci": "Dipotassium Glycyrrhizate",
+      "direction_ids": []
+    },
+    {
+      "canonical": "トラネキサム酸",
+      "aliases": [],
+      "inci": "Tranexamic Acid",
+      "direction_ids": []
+    },
+    {
+      "canonical": "3-O-エチルアスコルビン酸",
+      "aliases": [
+        "ビタミンCエチル"
+      ],
+      "inci": "3-O-Ethyl Ascorbic Acid",
+      "direction_ids": []
+    }
+  ]
+}

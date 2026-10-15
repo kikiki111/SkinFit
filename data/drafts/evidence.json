@@ -1,0 +1,114 @@
+{
+  "data_version": "2026-10-15.1",
+  "directions": [
+    {
+      "direction_id": "hydration",
+      "label": "保湿",
+      "concern": "fine_lines",
+      "summary": "乾燥により目立つ小じわに対し、保湿剤が外観を改善する可能性がある。水分を保持するヒアルロン酸、皮膚バリアを支えるセラミド、保湿剤の基剤となるグリセリンなどが用いられる。",
+      "member_ingredients": [
+        "セラミド",
+        "ヒアルロン酸",
+        "グリセリン"
+      ]
+    },
+    {
+      "direction_id": "retinoid",
+      "label": "レチノイド",
+      "concern": "fine_lines",
+      "summary": "ビタミンA由来のレチノイド（レチノール等）が皮膚代謝を促進し、コラーゲン産生を高めることで、軽度の小じわや肌質の改善が報告されている。",
+      "member_ingredients": [
+        "レチノール",
+        "パルミチン酸レチノール"
+      ]
+    },
+    {
+      "direction_id": "niacinamide",
+      "label": "ナイアシンアミド",
+      "concern": "fine_lines",
+      "summary": "ビタミンB3の一種であるナイアシンアミドについて、臨床試験でシワや肌質の改善が報告されている。ただし作用機序の解明や効果の一貫性については研究段階の知見もある。",
+      "member_ingredients": [
+        "ナイアシンアミド"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "ev_moisturizer_fine_lines",
+      "direction_id": "hydration",
+      "ingredient_names": [
+        "保湿剤（一般）"
+      ],
+      "concern": "fine_lines",
+      "summary": "米国皮膚科学会（AAD）は、保湿剤が小じわを目立たなくする（minimize fine lines）と記載している。保湿と日焼け止めを、最も効果的な2つのアンチエイジング製品と位置づけている。",
+      "scope": "一般的なスキンケアの基本として推奨される保湿剤全般。特定の成分や濃度は明記されていない。",
+      "limitations": "具体的な成分、濃度、効果の程度、持続期間は明記されていない。「modest results（控えめな結果）」と表現されており、劇的な効果は期待できない。個人の肌質により合う製品は異なる。",
+      "cautions": "複数のアンチエイジング製品を短期間に併用すると肌の刺激になる可能性がある。効果を判断するには数週間の使用期間が必要。",
+      "source": {
+        "source_id": "src_ev_aad_selecting",
+        "url": "https://www.aad.org/public/everyday-care/skin-care-secrets/anti-aging/selecting-anti-aging-products",
+        "title": "How to select anti-aging skin care products",
+        "publisher": "American Academy of Dermatology",
+        "checked_at": "2026-10-15"
+      }
+    },
+    {
+      "evidence_id": "ev_retinoid_fine_lines",
+      "direction_id": "retinoid",
+      "ingredient_names": [
+        "レチノイド",
+        "レチノール"
+      ],
+      "concern": "fine_lines",
+      "summary": "AADによれば、レチノイドは皮膚の代謝を促進し（spur faster turnover of surface skin cells）、コラーゲンを増やす（boost collagen）ことで、肌質を改善し、小じわやシワを軽減する。軽度の小じわ、軽度のニキビ、軽度の色素沈着に適した選択肢とされる。",
+      "scope": "軽度の小じわに対する外用製品。肌アレルギーや過度の乾燥がなく、赤みや炎症が顕著でない人が対象。OTC製品はレチノール濃度の表示義務がないため、製品ごとの濃度は不明。",
+      "limitations": "濃度、効果データ、効果が現れるまでの期間、臨床試験結果は明記されていない。効果は一般的な記述と皮膚科医の引用に基づいており、具体的な数値や比較データは提示されていない。",
+      "cautions": "妊娠中は使用禁忌。レチノイドは紫外線感受性を高めるため、夜のみ使用し、日中は日焼け止め、日陰、防護衣類で紫外線対策が必要（敏感肌には酸化チタン・酸化亜鉛配合の物理的日焼け止めを推奨）。刺激感が生じる可能性があり、特に濃い肌色の人では刺激が色素沈着を引き起こすリスクがある。低濃度から開始し、隔日使用で徐々に慣らし、保湿剤の併用が推奨される。",
+      "source": {
+        "source_id": "src_ev_aad_retinoid",
+        "url": "https://www.aad.org/public/everyday-care/skin-care-secrets/anti-aging/retinoid-retinol/",
+        "title": "Retinoid or retinol?",
+        "publisher": "American Academy of Dermatology",
+        "checked_at": "2026-10-15"
+      }
+    },
+    {
+      "evidence_id": "ev_niacinamide_aging",
+      "direction_id": "niacinamide",
+      "ingredient_names": [
+        "ナイアシンアミド"
+      ],
+      "concern": "fine_lines",
+      "summary": "Bissett et al.（2005）の二重盲検左右ランダム化試験では、50名の女性が12週間、顔の片側に5%ナイアシンアミド、反対側にビークルを1日2回塗布した結果、小じわとシワ、色素沈着、赤み、くすみの軽減が報告された。カトメーターで測定した弾力性も改善した。",
+      "scope": "顔の光老化を有する50名の女性。5%ナイアシンアミド配合製品を12週間、1日2回使用。評価は視覚評価と機器測定（カトメーター）による。",
+      "limitations": "50名の女性のみを対象とした単一の試験。男性や他の肌タイプでの効果は未確認。効果の持続期間（12週間以降）は不明。5%以外の濃度での効果は要旨からは不明。",
+      "cautions": "要旨には副作用や注意事項の記載はなかった。一般的に忍容性は高いとされるが、個別の肌質や製品配合によっては刺激が生じる可能性がある。",
+      "source": {
+        "source_id": "src_ev_bissett_2005",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/16029679/",
+        "title": "Niacinamide: A B vitamin that improves aging facial skin appearance",
+        "publisher": "Dermatologic Surgery, 2005",
+        "checked_at": "2026-10-15"
+      }
+    },
+    {
+      "evidence_id": "ev_ceramide_barrier_dryness",
+      "direction_id": "hydration",
+      "ingredient_names": [
+        "セラミド"
+      ],
+      "concern": "fine_lines",
+      "summary": "Lueangarun et al.（2019）の二重盲検ランダム化比較試験では、軽度から中等度の老人性乾燥症を有する24名の高齢者（平均年齢約55歳）を対象に、セラミド1, 3, 6-II含有保湿クリームと親水性クリームを比較した。28日間の使用後、セラミドクリームは保湿、バリア機能、pHの改善に加え、シワの軽減と肌質の改善を示した。",
+      "scope": "軽度から中等度の老人性乾燥症（加齢による乾燥）を有する24名の高齢者。セラミド1, 3, 6-II含有クリームを28日間使用。評価は保湿、経皮水分喪失、pH、シワ、肌質。",
+      "limitations": "24名の小規模試験。老人性乾燥症を有する高齢者のみが対象で、若年者や正常な肌での効果は不明。セラミドの濃度は要旨からは不明。シワの改善が報告されているが、主要評価項目は保湿とバリア機能であり、シワへの直接的な効果は副次的な所見。",
+      "cautions": "要旨には副作用の記載はなかった。セラミドは一般的に忍容性が高いとされる。",
+      "source": {
+        "source_id": "src_ev_lueangarun_2019",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/31585489/",
+        "title": "The 24-hr, 28-day, and 7-day post-moisturizing efficacy of ceramides 1, 3, 6-II containing moisturizing cream compared with hydrophilic cream on skin dryness and barrier disruption in senile xerosis treatment",
+        "publisher": "Dermatologic Therapy, 2019",
+        "checked_at": "2026-10-15"
+      }
+    }
+  ]
+}
