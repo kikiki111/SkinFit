@@ -440,3 +440,105 @@ def test_photos_from_research_reach_cards_and_routines(live):
     live.setattr(research, "research_candidate", None)
     rr = orchestrator.run_rerank(RerankRequest(**_live_request(priorities=LIGHT_PRIORITIES).model_dump(), analysis=res.analysis))
     assert all(c.media and c.media.provider == "yahoo" for c in rr.candidates)
+
+
+def _facts(**kw):
+    base = dict(found=True, brand="B", name="N", category="lotion", ingredients_full=[], ingredients_complete=False,
+                ingredients_sources=[], usage_timing=[], usage_strength="not_stated", usage_note=None, usage_sources=[],
+                claims=[], maker_texture_description=None, volume_value=None, volume_unit=None, price_jpy_tax_included=None,
+                price_sources=[], unknown_fields=[])
+    return research._FactsOut(**{**base, **kw})
+
+
+def test_active_ingredients_are_kept_only_when_in_search_text():
+    src = [Source(source_id="S1", url="https://example.com", title="maker", checked_at=TODAY)]
+    g = research.GroundedResult(text="医薬部外品。有効成分：トラネキサム酸＊。さっぱりタイプ。", annotated="", sources=src, queries=[])
+    p = research._facts_to_product(_facts(active_ingredients=["トラネキサム酸", "ナイアシンアミド"]), g, "own_1", "owned", {})
+    assert p.active_ingredients == ["トラネキサム酸"]  # 本文に無い名前は捨てる
+    no_src = g.model_copy(update={"sources": []})
+    assert research._facts_to_product(_facts(active_ingredients=["トラネキサム酸"]), no_src, "own_1", "owned", {}).active_ingredients == []
+
+
+def test_discover_other_step_keeps_only_values_in_search_text(monkeypatch):
+    seen = {}
+    src = Source(source_id="S1", url="https://example.com/other", title="maker", checked_at=TODAY)
+
+    async def fake_grounded(prompt, label):
+        seen["prompt"] = prompt
+        return research.GroundedResult(text="レチノール乳液 税込1,980円 パルミチン酸レチノール配合", annotated="", sources=[src], queries=[])
+
+    async def fake_structure(conditions, g, target_prefix=""):
+        from app.schemas import ResearchStep
+        seen["category"] = conditions.category
+        stubs = [{"brand": "テスト", "name": "レチノール乳液", "price_jpy_tax_included": 2500,
+                  "key_ingredients": ["パルミチン酸レチノール", "ナイアシンアミド"], "sources": [src.model_dump()]},
+                 {"brand": "テスト", "name": "出典なし乳液", "price_jpy_tax_included": 1980,
+                  "key_ingredients": ["パルミチン酸レチノール"], "sources": []}]
+        return stubs, ResearchStep(step="discover", target=f"{target_prefix}乳液", status="ok", summary="2件")
+    monkeypatch.setattr(research, "grounded", fake_grounded)
+    monkeypatch.setattr(research, "structure_discovery", fake_structure)
+    stubs, step, _ = asyncio.run(research.discover_other_step(
+        demo_request().conditions, {"label": "レチノイド", "members": ["レチノール"]}, [], "emulsion"))
+    assert seen["category"] == "emulsion" and "乳液の役割（水分と油分で" in seen["prompt"]
+    assert [s["name"] for s in stubs] == ["レチノール乳液"]  # 出典の無い候補は使わない
+    assert stubs[0]["price_jpy_tax_included"] is None  # 本文に無い価格は消す
+    assert stubs[0]["key_ingredients"] == ["パルミチン酸レチノール"]
+
+
+def test_selection_input_includes_target_and_routine(live):
+    seen = {}
+
+    def capture(ctx, node_input):
+        seen.update(node_input)
+        return select_stub(ctx, node_input)
+    capture.__name__ = "select_agent"
+    live.setattr(agents, "select_agent", lambda: capture)
+    events, _ = _run(_live_request())
+    assert seen["target"]["category"] == "美容液" and seen["target"]["role"]
+    assert [s["category"] for s in seen["routine"]] == ["化粧水", "乳液"]
+    assert seen["routine"][0]["keep"] is True and not any(s["replaced"] for s in seen["routine"])
+    assert all("replaced_only" in c for c in seen["owned_coverage"])
+    assert set(seen["step_roles"]) == {"lotion", "serum", "emulsion", "cream"}
+    # 別の案を提案しなかったので、検索せずに省略される
+    assert ("other_step_research", "skipped") in [(e.node, e.status) for e in events if e.type == "progress"]
+
+
+async def _owned_without_retinoid(item, pid):
+    from app.schemas import ResearchStep
+    ings = ["水", "グリセリン", "BG", "ナイアシンアミド", "ペンチレングリコール", "カルボマー", "キサンタンガム", "フェノキシエタノール"]
+    step = ResearchStep(step="owned", target=item["name"], status="ok", summary="全成分を取得")
+    return _product(pid, "owned", item["name"], item["category"], ings), None, step
+
+
+def test_other_step_suggestion_reaches_result_and_survives_rerank(live):
+    """美容液の候補でレチノイドを補えないとき、手持ちの乳液を替える案を、検索本文で確かめた値だけで出す。"""
+    def select_with_other_step(ctx, node_input):
+        out = select_stub(ctx, node_input)
+        out["other_step"] = [{"direction_id": "retinoid", "category": "emulsion", "why": "乳液で探す方が役割に合う"}]
+        return out
+    select_with_other_step.__name__ = "select_agent"
+
+    async def fake_other_step(conditions, direction, owned, category, limit=2):
+        from app.schemas import ResearchStep
+        assert category == "emulsion" and direction["label"] == "レチノイド"
+        src = {"source_id": "S1", "url": "https://example.com/other", "title": "maker", "publisher": None, "checked_at": TODAY}
+        stubs = [{"brand": "テスト", "name": "レチノール乳液", "price_jpy_tax_included": 1500,
+                  "key_ingredients": ["パルミチン酸レチノール"], "sources": [src]},
+                 {"brand": "テスト", "name": "保湿乳液", "price_jpy_tax_included": 1200, "key_ingredients": ["スクワラン"], "sources": [src]}]
+        return stubs, ResearchStep(step="discover", target="別のアイテムの案：乳液", status="ok", summary="2件"), "<div>suggest-other</div>"
+    live.setattr(research, "research_owned", _owned_without_retinoid)
+    live.setattr(agents, "select_agent", lambda: select_with_other_step)
+    live.setattr(research, "discover_other_step", fake_other_step)
+    events, res = _run(_live_request())
+    assert res.status == "RECOMMENDATION_READY"
+    o = res.other_step
+    assert o and o.action == "replace" and o.category == "emulsion" and o.replaced_name == "乳液"
+    assert [p.name for p in o.products] == ["レチノール乳液"]  # レチノイドの成分を確かめられない候補は使わない
+    assert o.products[0].ingredients == ["パルミチン酸レチノール"] and o.products[0].price_jpy == 1500
+    assert o.message == "美容液の候補では、レチノイドの成分を確認できませんでした。今の乳液を替える場合の、乳液の候補です。"
+    assert "口コミと全成分の全体は調べていません" in o.note
+    assert ("other_step_research", "done") in [(e.node, e.status) for e in events if e.type == "progress"]
+    step = next(s for s in res.research_log if s.target == "別のアイテムの案：乳液")
+    assert "選定エージェントの判断：乳液で探す方が役割に合う" in step.details
+    rr = orchestrator.run_rerank(RerankRequest(**_live_request(priorities=LIGHT_PRIORITIES).model_dump(), analysis=res.analysis))
+    assert rr.other_step == o

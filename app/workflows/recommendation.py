@@ -2,6 +2,9 @@
 
 方向性の確定 → 手持ちの検索と探索エージェント3つ（方向性ごと）を同時 → 合流 → 選定エージェント
 → 候補を調べる（並行）→ 3分岐（成分・口コミ・配置）→ 合流 → 順位 → 説明
+選定エージェントの後ろでは、別の種類のアイテムの案（other_step_research）も、候補の調査と同時に走る。
+
+手持ちは「入れ替え後のセット」として扱う。探すアイテムと同じ種類で「残したい」でない手持ちは、入れ替える前提で除いて比べる。
 
 - 調べる処理は Gemini の Google検索連携を使う（research.py）。検索に失敗したら、登録済みの候補で代替する
 - その場で調べた製品・口コミはセッション状態の "bundle" に置き、各ノードはそこから製品データを組み立てる
@@ -20,7 +23,9 @@ from .. import assemble, normalize, research, reviews
 from ..catalog import Catalog, catalog_from_bundle, find_registered, load, search_candidates
 from ..config import settings
 from ..logging_utils import log_event
-from ..schemas import Conditions, Product, RecommendationResult, RecommendRequest, ResearchStep
+from ..routine import OTHER_STEP_CATEGORIES, ORDER, ROLE
+from ..schemas import (Conditions, OtherStepProduct, OtherStepSuggestion, Product, RecommendationResult, RecommendRequest,
+                       ResearchStep, SourceRef)
 from . import agents
 
 LIGHT_WORDS = ("さっぱり", "軽", "みずみずし", "ベタつかない", "べたつかない", "さらっと", "サラッと")
@@ -121,8 +126,21 @@ def _finish_owned(ctx) -> list[dict]:
         if p.ingredients_full:
             entry_log["details"].append("取得した全成分：" + "、".join(p.ingredients_full))
     ctx.state["bundle"] = b
-    coverage = [c.model_dump() for c in normalize.owned_analysis(cat, b.get("owned_ids", [])).coverage]
-    return [{k: c[k] for k in ("direction_id", "label", "status", "ingredients")} for c in coverage]
+    analysis = normalize.owned_analysis(cat, b.get("owned_ids", []), assemble.replaced_for(cat, _req(ctx)))
+    return [{k: c[k] for k in ("direction_id", "label", "status", "ingredients", "replaced_only")}
+            for c in (x.model_dump() for x in analysis.coverage)]
+
+
+def _routine_steps(cat: Catalog, req: RecommendRequest) -> list[dict]:
+    """選定エージェントに渡す、手持ちのステップごとの内訳（入れ替え予定か・残したいか・方向性・有効成分）。"""
+    labels = {d.direction_id: d.label for d in cat.directions.values()}
+    replaced = set(assemble.replaced_for(cat, req))
+    owned = sorted((cat.product(pid) for pid in req.owned_product_ids if pid in cat.products),
+                   key=lambda p: (ORDER.get(p.category, 9), p.product_id))
+    return [{"name": f"{p.brand} {p.name}".strip(), "category": research.CATEGORY_LABEL.get(p.category, "スキンケア製品"),
+             "replaced": p.product_id in replaced, "keep": p.product_id in req.keep_product_ids,
+             "directions": sorted({labels.get(h.direction_id, h.direction_id) for h in normalize.ingredient_hits(cat, p)}),
+             "active_ingredients": normalize.actives_of(cat, p)} for p in owned]
 
 
 def _choose(stubs: list[dict], conditions: Conditions, owned: list[Product], limit: int) -> tuple[list[dict], list[str]]:
@@ -288,7 +306,11 @@ def prepare_selection(ctx, node_input: dict) -> dict:
     # 次の Agent ノード（select_agent）への入力
     return {
         "conditions": req.conditions.model_dump(include={"concern_label", "category", "budget_jpy_max", "texture_preferences", "keep_note"}),
+        "target": {"category": research.CATEGORY_LABEL.get(req.conditions.category, "スキンケア製品"),
+                   "role": ROLE.get(req.conditions.category, ROLE["other"])},
+        "routine": _routine_steps(cat, req),
         "owned_coverage": owned_coverage,
+        "step_roles": {c: f"{research.CATEGORY_LABEL[c]}：{ROLE[c]}" for c in OTHER_STEP_CATEGORIES},
         "max_select": settings.max_live_candidates,
         "candidates": [{"candidate_id": s["candidate_id"], "brand": s.get("brand"), "name": s["name"],
                         "price_jpy_tax_included": s.get("price_jpy_tax_included"), "direction": s.get("direction_label"),
@@ -357,6 +379,90 @@ async def candidate_discovery(ctx, node_input: dict) -> dict:
         _note(ctx, "候補の検索に失敗したため、登録済みの候補で推薦しています")
     log_event("node", node="candidate_discovery", mode=out["mode"], stubs=[s["name"] for s in out["stubs"]], directions=directions)
     return out
+
+
+def other_step_plan(cat: Catalog, req: RecommendRequest, selection: dict | None, picked: list[dict]) -> dict | None:
+    """選定エージェントの「別の種類のアイテムで探す」提案を、Pythonの条件で検査する。条件を満たさなければ None。
+
+    1. 方向性が入れ替え後の手持ちで「見当たらない」（判断できない場合は対象外）
+    2. 詳しく調べる候補に、その方向性で見つかった候補が無い
+    3. 種類が探すアイテム以外の化粧水・美容液・乳液・クリーム。その種類の手持ちが「残したい」なら対象外
+    """
+    replaced = assemble.replaced_for(cat, req)
+    coverage = {c.direction_id: c for c in normalize.owned_analysis(cat, req.owned_product_ids, replaced).coverage}
+    covered = {s.get("direction_id") for s in picked}
+    owned = [cat.product(pid) for pid in req.owned_product_ids if pid in cat.products and pid not in replaced]
+    for item in (selection or {}).get("other_step", [])[:1]:
+        d, category = item.get("direction_id"), item.get("category")
+        c = coverage.get(d)
+        if c is None or c.status != "not_found" or d in covered:
+            continue
+        if category not in OTHER_STEP_CATEGORIES or category == req.conditions.category:
+            continue
+        same = [o for o in owned if o.category == category]
+        if any(o.product_id in req.keep_product_ids for o in same):
+            continue
+        return {"direction_id": d, "category": category, "why": item.get("why", ""),
+                "action": "replace" if same else "add",
+                "replaced_product_id": same[0].product_id if same else None,
+                "replaced_name": same[0].name if same else None}
+    return None
+
+
+async def other_step_research(ctx, node_input: dict) -> dict:
+    """探すアイテムでは補えない方向性を、別の種類のアイテムで1回だけ検索する（参考の案）。
+
+    結果は返すだけで共有の状態には書かない（候補の調査と同時に走るため）。rank がまとめて bundle に入れる。
+    """
+    if settings.research_mode != "live":
+        return {"status": "SKIPPED"}
+    cat = _cat(ctx)
+    req = _req(ctx)
+    picked, _, _ = _apply_selection(ctx, node_input)
+    plan = other_step_plan(cat, req, node_input, picked)
+    if plan is None:
+        return {"status": "SKIPPED"}
+    t = time.time()
+    d = cat.directions[plan["direction_id"]]
+    label = research.CATEGORY_LABEL[plan["category"]]
+    owned = [cat.product(pid) for pid in req.owned_product_ids if pid in cat.products]
+    try:
+        stubs, step, entry = await research.discover_other_step(
+            req.conditions, {"label": d.label, "members": d.member_ingredients}, owned, plan["category"])
+    except Exception as e:  # noqa: BLE001
+        log_event("node_error", severity="ERROR", node="other_step_research", error=type(e).__name__)
+        return {"status": "FAILED"}
+    cond = req.conditions.model_copy(update={"category": plan["category"]})
+    stubs, _ = _choose(stubs, cond, owned, 2)  # 予算超え・手持ちと同じ製品を外す
+    products = []
+    for st in stubs:
+        ings = [h.name for h in normalize.names_hits(cat, st.get("key_ingredients", [])) if h.direction_id == d.direction_id]
+        if not ings:
+            continue  # 方向性の成分を検索本文で確かめられない候補は使わない
+        src = st["sources"][0]
+        products.append(OtherStepProduct(brand=st.get("brand") or "", name=st["name"], price_jpy=st.get("price_jpy_tax_included"),
+                                         ingredients=list(dict.fromkeys(ings)),
+                                         source=SourceRef(source_id=src["source_id"], url=src["url"], title=src["title"])))
+    step.details = step.details + [f"選定エージェントの判断：{plan['why']}"] if plan["why"] else step.details
+    if not products:
+        log_event("node", node="other_step_research", direction=d.label, category=plan["category"], products=0,
+                  ms=int((time.time() - t) * 1000))
+        return {"status": "OK", "suggestion": None, "step": step.model_dump(), "entry": entry}
+    target_label = research.CATEGORY_LABEL.get(req.conditions.category, "スキンケア製品")
+    ev = next((e for e in cat.evidence_for([d.direction_id]) if e.cautions), None)
+    suggestion = OtherStepSuggestion(
+        direction_id=d.direction_id, direction_label=d.label, category=plan["category"], action=plan["action"],
+        replaced_product_id=plan["replaced_product_id"], replaced_name=plan["replaced_name"],
+        message=(f"{target_label}の候補では、{d.label}の成分を確認できませんでした。"
+                 + (f"今の{plan['replaced_name']}を替える場合の、{label}の候補です。" if plan["action"] == "replace"
+                    else f"{label}を足す場合の候補です。")),
+        products=products, cautions=ev.cautions if ev else None,
+        caution_source=SourceRef(source_id=ev.source.source_id, url=ev.source.url, title=ev.source.title) if ev else None,
+        note="口コミと全成分の全体は調べていません。購入前に公式ページで確認してください。",
+    )
+    log_event("node", node="other_step_research", direction=d.label, category=plan["category"], products=len(products),
+              ms=int((time.time() - t) * 1000))
+    return {"status": "OK", "suggestion": suggestion.model_dump(), "step": step.model_dump(), "entry": entry}
 
 
 async def candidate_research(ctx, node_input: dict) -> dict:
@@ -475,15 +581,26 @@ def attach_research(result: RecommendationResult, bundle: dict | None) -> Recomm
     result.research_notes = list(dict.fromkeys(bundle.get("notes") or []))
     result.search_suggestions_html = list(dict.fromkeys(bundle.get("suggestions") or []))[:3]
     result.research_log = [ResearchStep.model_validate(x) for x in bundle.get("research_log") or []]
+    if bundle.get("other_step"):
+        result.other_step = OtherStepSuggestion.model_validate(bundle["other_step"])
     result.analysis.bundle = {k: bundle.get(k) for k in ("owned", "candidates", "reviews", "mode", "researched_at",
                                                          "owned_ids", "keep_ids", "notes", "suggestions", "research_log",
-                                                         "directions", "evidence")}
+                                                         "directions", "evidence", "other_step")}
     return result
 
 
 def rank(ctx, node_input: dict) -> dict:
     """合流した調査結果から、Pythonで順位と表示用の結果を組み立てる。"""
     ing, rev, rou = node_input["ingredient_branch"], node_input["review_branch"], node_input["routine_branch"]
+    other = node_input.get("other_step_research") or {}
+    if other.get("step") or other.get("suggestion"):
+        b = ctx.state.get("bundle") or {}
+        if other.get("step"):
+            b.setdefault("research_log", []).append(other["step"])
+        if other.get("entry"):
+            b.setdefault("suggestions", []).append(other["entry"])
+        b["other_step"] = other.get("suggestion")
+        ctx.state["bundle"] = b
     search = ing["search"]
     branch_status = {"ingredient": ing["status"], "review": rev["status"], "routine": rou["status"]}
     result = assemble.build(
@@ -517,12 +634,15 @@ def build_workflow() -> Workflow:
     join = JoinNode(name="join")
     # 探索は方向性ごとに「検索の指示を作る → ADKの探索Agent（google_search）→ 出典つきで構造化」の3段
     chains = [(prepare, _make_dir(i), agents.discover_agent(i), _make_discover_structure(i), gather) for i in range(MAX_DIRECTIONS)]
+    select = agents.select_agent()  # 候補の調査と別の案の検索の両方へ、同じ選定結果を渡す
     return Workflow(name="recommendation", edges=[
         # 手持ちの検索は方向性を待たずに最初から走らせる。探索エージェントは方向性の確定（prepare）を待つ
         ("START", owned_research, gather),
         ("START", prepare),
         *chains,
-        (gather, prepare_selection, agents.select_agent(), candidate_research),
+        (gather, prepare_selection, select, candidate_research),
+        # 別の種類のアイテムの案は、候補の調査と同時に走らせる（条件を満たさなければ検索せずに終わる）
+        (select, other_step_research, join),
         (candidate_research, ingredient_branch, join),
         (candidate_research, review_branch, join),
         (candidate_research, routine_branch, join),

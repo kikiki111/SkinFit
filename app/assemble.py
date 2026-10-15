@@ -32,12 +32,18 @@ def concern_relevance(cat: Catalog, product_id: str, concern: str, direction_ids
     return ConcernRelevance(level=level, label=CONCERN_LABEL[level], claims=claims, ingredients=hits, evidence=evidence)
 
 
+def replaced_for(cat: Catalog, req: RecommendRequest) -> list[str]:
+    """探すアイテムと同じ種類で「残したい」でない手持ち。入れ替える前提で、残りのセットと比べる。"""
+    return routine.replaced_ids(cat, req.owned_product_ids, req.keep_product_ids, req.conditions.category)
+
+
 def research_ingredients(cat: Catalog, req: RecommendRequest, candidate_ids: list[str], direction_ids: list[str]) -> dict:
     """成分・製品表示の調査（Workflowの ingredient_branch）。"""
+    replaced = replaced_for(cat, req)
     return {
         pid: {
             "concern": concern_relevance(cat, pid, req.conditions.concern, direction_ids).model_dump(),
-            "owned": normalize.owned_relation(cat, cat.product(pid), req.owned_product_ids).model_dump(),
+            "owned": normalize.owned_relation(cat, cat.product(pid), req.owned_product_ids, replaced).model_dump(),
         }
         for pid in candidate_ids
     }
@@ -69,7 +75,8 @@ def build(
     base = dict(
         data_version=cat.data_version, uses_dummy_data=cat.uses_dummy,
         plan_directions=[DirectionView(direction_id=d, label=cat.directions[d].label, why=cat.directions[d].summary) for d in direction_ids],
-        owned_analysis=normalize.owned_analysis(cat, req.owned_product_ids),
+        owned_analysis=normalize.owned_analysis(cat, req.owned_product_ids, replaced_for(cat, req)).model_copy(
+            update={"target_category": req.conditions.category}),
         branch_status=branch_status or {},
         analysis={"plan_directions": direction_ids, "review_findings": findings or {}, "explanations": explanations or {}},
     )
@@ -103,7 +110,7 @@ def build(
         )
         inputs.append(RankInput(product_id=pid, name=p.name, concern_level=views[pid].concern_relevance.level,
                                 stickiness_level=texture.stickiness_level, price=p.price_jpy_tax_included or 0,
-                                analyzed_count=scope.analyzed_count))
+                                analyzed_count=scope.analyzed_count, routine_level=views[pid].owned_relation.routine_level))
     ranking, reasons = rank(inputs, list(req.priorities), req.conditions.require_texture_evidence)
     ranking.excluded = excluded + ranking.excluded
     if not ranking.order:

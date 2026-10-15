@@ -41,6 +41,7 @@ LABELS = {
     "select_agent": "選定エージェント：手持ちを踏まえて詳しく調べる候補を選ぶ",
     "candidate_discovery": "条件に合う商品をGoogle検索で探索",
     "candidate_research": "候補の成分・効能表示・口コミをGoogle検索で調査",
+    "other_step_research": "探すアイテムで補えない方向性を、別の種類のアイテムでGoogle検索",
     "concern_planner": "悩みと手持ちから調査方針を作成",
     "candidate_search": "登録済みの製品から候補を抽出",
     "ingredient_branch": "成分・製品表示と手持ちを照合",
@@ -140,7 +141,9 @@ async def _run_recommend(req: RecommendRequest) -> AsyncIterator[ProgressEvent |
                 # ADKのAgentノード（探索エージェント）は終わりの記録に結果が載らないため、後ろの整理ノードが終わった時点で完了にする
                 if node.startswith("discover_") and not node.startswith("discover_agent_"):
                     yield _progress(node.replace("discover_", "discover_agent_"))
-                yield _progress(node)
+                # 別の種類のアイテムの案は、条件を満たさなければ検索しない。そのときは「省略」と出す
+                skipped = node == "other_step_research" and isinstance(out, dict) and out.get("status") == "SKIPPED"
+                yield _progress(node, "skipped" if skipped else "done")
                 for nxt in NEXT_RUNNING.get(node, []):
                     yield _progress(nxt, "running")
     except TimeoutError:

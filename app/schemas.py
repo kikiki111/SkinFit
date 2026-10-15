@@ -159,10 +159,11 @@ ASPECT_LABELS: dict[str, str] = {
     "makeup": "メイク前の使いやすさ",
     "irritation": "刺激感",
 }
-PriorityKey = Literal["concern", "stickiness", "price"]
-PRIORITY_LABELS: dict[str, str] = {"concern": "悩みとの関連", "stickiness": "ベタつきの少なさ", "price": "価格"}
-DEFAULT_PRIORITIES: list[str] = ["concern", "stickiness", "price"]
-LIGHT_PRIORITIES: list[str] = ["stickiness", "concern", "price"]
+PriorityKey = Literal["concern", "routine", "stickiness", "price"]
+PRIORITY_LABELS: dict[str, str] = {"concern": "悩みとの関連", "routine": "手持ちとの補い合い", "stickiness": "ベタつきの少なさ",
+                                   "price": "価格"}
+DEFAULT_PRIORITIES: list[str] = ["concern", "routine", "stickiness", "price"]
+LIGHT_PRIORITIES: list[str] = ["stickiness", "concern", "routine", "price"]
 
 
 class TexturePreference(BaseModel):
@@ -269,7 +270,7 @@ class RecommendRequest(BaseModel):
     owned_items: list[OwnedItem] = Field(default_factory=list, max_length=8)
     owned_product_ids: list[str] = Field(default_factory=list, max_length=8)
     keep_product_ids: list[str] = Field(default_factory=list, max_length=8)
-    priorities: list[PriorityKey] = Field(default_factory=lambda: list(DEFAULT_PRIORITIES), min_length=1, max_length=3)
+    priorities: list[PriorityKey] = Field(default_factory=lambda: list(DEFAULT_PRIORITIES), min_length=1, max_length=4)
 
     @field_validator("priorities", "owned_product_ids", "keep_product_ids")
     @classmethod
@@ -366,10 +367,19 @@ class OwnedOverlap(BaseModel):
 
 
 class OwnedRelation(BaseModel):
+    """候補と、入れ替え後の手持ち（探すアイテムと同じ種類で「残したい」でないものを除いたセット）との関係。"""
+
     overlaps: list[OwnedOverlap] = []
     new_directions: list[str] = []
     shared_directions: list[str] = []
     unconfirmed_directions: list[str] = []
+    routine_level: Literal["adds", "overlap", "unknown"] = "unknown"  # 順位の「手持ちとの補い合い」に使う
+    replaced_product_ids: list[str] = []
+    active_ingredients: list[str] = []  # 候補の有効成分（検索本文に「有効成分」と明記されたもの）
+    active_overlaps: list[OwnedOverlap] = []  # 候補の有効成分のうち、入れ替え後の手持ちにもあるもの
+    released_actives: list[OwnedOverlap] = []  # 入れ替える手持ちの有効成分のうち、残りの手持ちにも候補にも無いもの
+    actives_unconfirmed: bool = False  # 全成分を確認しきれず、手放すかどうか判断できない
+    replaced_textures: dict[str, str | None] = {}  # 入れ替える手持ちの名前 → メーカーの使用感の説明（無ければ None）
     note: str
 
 
@@ -485,6 +495,9 @@ class OwnedProductView(BaseModel):
     ingredient_source: SourceRef | None = None
     directions_found: list[IngredientHit] = []
     claims: list[ClaimView] = []
+    replaced: bool = False  # 探すアイテムと同じ種類で「残したい」でないため、入れ替える前提の手持ち
+    active_ingredients: list[str] = []
+    maker_texture_description: str | None = None
 
 
 class DirectionCoverage(BaseModel):
@@ -494,12 +507,39 @@ class DirectionCoverage(BaseModel):
     product_ids: list[str] = []
     ingredients: list[str] = []
     note: str
+    replaced_only: bool = False  # 入れ替える手持ちだけにある方向性（入れ替えるとセットから無くなる）
 
 
 class OwnedAnalysis(BaseModel):
     products: list[OwnedProductView]
     common_ingredients: list[OwnedOverlap] = []
-    coverage: list[DirectionCoverage] = []
+    coverage: list[DirectionCoverage] = []  # 入れ替え後の手持ちで計算する
+    replaced_product_ids: list[str] = []
+    target_category: Category | None = None
+
+
+class OtherStepProduct(BaseModel):
+    brand: str
+    name: str
+    price_jpy: int | None = None  # 検索本文で確認できた値だけ
+    ingredients: list[str] = []  # 方向性に当たる成分で、検索本文で確認できたもの
+    source: SourceRef | None = None
+
+
+class OtherStepSuggestion(BaseModel):
+    """探すアイテムでは補えない方向性を、別の種類のアイテムで検討する参考の案。口コミと全成分の全体は調べない。"""
+
+    direction_id: str
+    direction_label: str
+    category: Category
+    action: Literal["replace", "add"]
+    replaced_product_id: str | None = None
+    replaced_name: str | None = None
+    message: str  # Pythonの定型文
+    products: list[OtherStepProduct] = []
+    cautions: str | None = None  # 方向性の登録済み資料の注意事項
+    caution_source: SourceRef | None = None
+    note: str
 
 
 class ResearchStep(BaseModel):
@@ -545,6 +585,7 @@ class RecommendationResult(BaseModel):
     research_notes: list[str] = []
     search_suggestions_html: list[str] = []  # Google検索の検索候補（グラウンディングの表示要件）
     research_log: list[ResearchStep] = []
+    other_step: OtherStepSuggestion | None = None  # 別の種類のアイテムで検討する参考の案
     analysis: Analysis = Analysis()
 
 

@@ -98,3 +98,17 @@ def test_ingredient_matching_uses_this_runs_directions_and_quasi_drug_names():
     assert any(n.startswith("有効成分：L-アスコルビン酸") and d == "live_1" for n, d in found)
     assert ("パルミチン酸レチノール", "live_2") in found
     assert not any(d == "retinoid" for _, d in found)  # この回に無い方向性は付けない
+
+
+def test_routine_fit_decides_when_concern_is_equal():
+    """悩みとの関連が同じなら、手持ちに無い方向性を加える候補を上にする（ベタつきより先に比べる）。"""
+    xs = [RankInput("x", "X", "ingredient", "good", 2000, 5, "overlap"),
+          RankInput("y", "Y", "ingredient", "bad", 2500, 5, "adds")]
+    r, reasons = rank(xs, DEFAULT_PRIORITIES)
+    assert r.order == ["y", "x"]
+    assert r.comparisons[0].deciding_aspect == "手持ちとの補い合い"
+    assert "手持ちに無い方向性を加える" in r.comparisons[0].detail
+    # 判断できない（unknown）候補は有利にしない
+    us = [RankInput("u", "U", "ingredient", "good", 2000, 5, "unknown"), RankInput("o", "O", "ingredient", "good", 2000, 5, "overlap")]
+    r2, _ = rank(us, DEFAULT_PRIORITIES)
+    assert r2.comparisons[0].deciding_aspect != "手持ちとの補い合い"

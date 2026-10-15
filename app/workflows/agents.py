@@ -110,7 +110,14 @@ def explain_facts(c: CandidateView) -> dict:
                          for a in c.texture.aspects for ex in a.examples[:2]],
             "review_scope_notes": c.review_scope.notes,
         },
-        "owned": c.owned_relation.note,
+        "owned": {
+            "note": c.owned_relation.note,
+            "routine_level": c.owned_relation.routine_level,  # adds: 手持ちに無い方向性を加える
+            "active_overlaps": [o.canonical for o in c.owned_relation.active_overlaps],
+            "released_actives": [o.canonical for o in c.owned_relation.released_actives],
+            # 入れ替える手持ちのメーカーの使用感の説明。texture.maker_description と並べて、違いを妥協点に書いてよい
+            "replaced_textures": c.owned_relation.replaced_textures,
+        },
         "price_source_id": c.price_source.source_id if c.price_source else None,
         "usage": {"timing": c.usage.timing, "strength": c.usage.timing_strength, "source_id": c.usage.source.source_id if c.usage.source else None},
         "unknown": c.unknown,
@@ -204,22 +211,40 @@ class SelectedItem(BaseModel):
     why: str
 
 
+class OtherStepItem(BaseModel):
+    direction_id: str
+    category: str
+    why: str
+
+
 class SelectOutput(BaseModel):
     selected: list[SelectedItem]
     excluded: list[SelectedItem]
+    other_step: list[OtherStepItem] = []  # 選んだ候補で補えない方向性を、別の種類のアイテムで探す提案（最大1件）
 
 
 SELECT_INSTRUCTION = """あなたは、スキンケアの「次の1本」を選ぶために、詳しく調べる候補を選ぶ担当です。
-入力のJSONには、本人の条件（conditions）、手持ちの成分の確認結果（owned_coverage）、探索エージェントが見つけた候補（candidates）が入っています。
+入力のJSONには次のものが入っています。
+- conditions: 本人の条件
+- target: 探すアイテムの種類と、その役割
+- routine: 手持ちのステップごとの内訳（replaced が true のものは、探すアイテムと入れ替える前提の手持ち）
+- owned_coverage: 入れ替え後の手持ちでの、方向性ごとの確認結果（replaced_only が true なら、入れ替える手持ちだけにある方向性）
+- step_roles: 化粧水・美容液・乳液・クリームの役割
+- candidates: 探索エージェントが見つけた候補
 予算と手持ちとの重複は、プログラムが確認済みです。
 
 やること:
 - candidates の中から、詳しく調べる候補を max_select 件まで選び、selected に candidate_id と選んだ理由（1文）を書く
 - 選ばなかった候補は excluded に candidate_id と理由（1文）を書く
+- 選んだ候補で補えない方向性があり、別の種類のアイテム（step_roles の種類）の方が役割に合うと判断した場合だけ、
+  other_step に direction_id（owned_coverage のもの）・category（lotion / serum / emulsion / cream）・理由（1文）を最大1件書く
 選ぶときの考え方:
-- 手持ちで確認できない方向性（owned_coverage の status が not_found）の候補を優先する。ただし同じ方向性でも、悩みに関わる効能表示がある候補は検討してよい
+- 探すアイテムの役割（target）に合う候補を優先する。役割から外れる方向性は、ほかのステップで検討する方向性として excluded の理由に書いてよい
+- 入れ替え後の手持ちで確認できない方向性（owned_coverage の status が not_found）の候補を優先する。replaced_only の方向性は、入れ替えで手放す方向性なので、引き継ぐ候補を検討する
+- 別のステップに同じ方向性がすでにある場合は、優先を下げる。ただし悩みに関わる効能表示がある候補は検討してよい
 - 方向性が偏らないようにする
 - 本人がベタつきを避けたい場合は、使用感が軽めの候補を少なくとも1つ含める
+- 手持ちに無いことは、肌に必要・不足という意味ではない。理由に不足を断定する言葉を書かない
 厳守:
 - candidate_id は candidates にあるものだけを使う。新しい製品を作らない
 - 「治る」「必ず」「安全」「効く」「消える」などの断定をしない

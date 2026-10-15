@@ -6,7 +6,7 @@ const state = {
   ownedProductIds: [],
   catalogProducts: [],
   currentResult: null,
-  currentPriorities: ["concern", "stickiness", "price"],
+  currentPriorities: ["concern", "routine", "stickiness", "price"],
   currentRoutineProductId: null,
   selectedProductId: null,
   routineView: "proposed",
@@ -27,6 +27,21 @@ const CATEGORY = {
   cleanser: "クレンジング",
   sunscreen: "日焼け止め",
   other: "その他",
+};
+// 使う順番の目安（app/routine.py の ORDER と同じ）
+const ORDER = {
+  cleanser: 0,
+  lotion: 1,
+  serum: 2,
+  emulsion: 3,
+  cream: 4,
+  sunscreen: 5,
+  other: 6,
+};
+const ROUTINE_TEXT = {
+  adds: "手持ちに無い方向性を加える",
+  overlap: "手持ちに無い方向性は加わらない",
+  unknown: "判断できない（手持ちの成分を確認しきれず）",
 };
 const ASPECT = {
   stickiness: "ベタつき",
@@ -443,8 +458,8 @@ function defaultPriorities() {
   return (state.conditions?.texture_preferences || []).some(
     (p) => p.aspect === "stickiness" && p.preference === "avoid",
   )
-    ? ["concern", "stickiness", "price"]
-    : ["concern", "price"];
+    ? ["concern", "routine", "stickiness", "price"]
+    : ["concern", "routine", "price"];
 }
 
 $("btn-demo-intake").addEventListener("click", () => {
@@ -635,6 +650,32 @@ $("btn-sample-owned").addEventListener("click", () => {
   renderOwned();
   renderCatalog();
 });
+// 探すアイテムと同じ種類で「残したい」でない手持ちは、入れ替える前提で調べる（サーバーの判定と同じ規則）
+function replacementText(cond, items) {
+  const target = cond?.category;
+  if (!target || target === "other") return "";
+  const same = items.filter((i) => i.category === target && !i.keep);
+  if (!same.length) return "";
+  const names = same
+    .map(
+      (i) =>
+        [i.brand, i.name].filter(Boolean).join(" ") || "名前未入力のアイテム",
+    )
+    .join("・");
+  return `${CATEGORY[target]}を探しているため、今の${names}と入れ替える前提で調べます。併用する場合は「このアイテムは残したい」にチェックしてください。`;
+}
+function renderReplaceNote() {
+  const catalog = state.ownedProductIds
+    .map((id) => state.catalogProducts.find((p) => p.product_id === id))
+    .filter(Boolean)
+    .map((p) => ({ ...p, keep: false }));
+  const text = replacementText(state.conditions, [
+    ...state.ownedItems,
+    ...catalog,
+  ]);
+  $("owned-replace-note").textContent = text;
+  show("owned-replace-note", !!text);
+}
 function renderOwned() {
   const list = $("owned-items-list");
   list.replaceChildren();
@@ -659,6 +700,7 @@ function renderOwned() {
       input.addEventListener("input", () => {
         item[input.dataset.field] =
           input.type === "checkbox" ? input.checked : input.value;
+        renderReplaceNote();
       }),
     );
     row.querySelector(".owned-item-remove").addEventListener("click", () => {
@@ -667,6 +709,7 @@ function renderOwned() {
     });
     list.append(row);
   });
+  renderReplaceNote();
 }
 $("inventory-photo").addEventListener("change", async (e) => {
   const file = e.target.files[0];
@@ -774,6 +817,7 @@ const progressStages = [
     label: "成分・使い心地を比べる",
     nodes: [
       "candidate_research",
+      "other_step_research",
       "ingredient_branch",
       "review_branch",
       "routine_branch",
@@ -937,7 +981,7 @@ $("btn-preview").addEventListener("click", () =>
     finishEdit();
     state.currentRoutineProductId = null;
     state.currentResult = result;
-    state.currentPriorities = ["concern", "stickiness", "price"];
+    state.currentPriorities = ["concern", "routine", "stickiness", "price"];
     state.selectedProductId = null;
     renderResult(result);
     showSection("candidates");
@@ -1025,9 +1069,27 @@ function detailMarkup(c) {
       (e) =>
         `<p class="note">${esc(e.summary)} ${link(e, e.source_title || "口コミの出典")}</p>`,
     )
+    .join("")}</div><div class="detail-block"><h4>手持ちとの関係</h4>${(
+    c.owned_relation?.note || "手持ちを入力すると比較できます。"
+  )
+    .split("。")
+    .filter(Boolean)
+    .map((t) => `<p>${esc(t)}。</p>`)
     .join(
       "",
-    )}</div><div class="detail-block"><h4>手持ちとの関係</h4><p>${esc(c.owned_relation?.note || "手持ちを入力すると比較できます。")}</p><h4>順位の理由</h4><p>${esc(c.rank_reason)}</p>${(ex.reasons || []).map((r) => `<p class="note">${esc(r.text)}</p>`).join("")}</div><div class="detail-block"><h4>使い方と確認事項</h4><p>${c.usage?.timing?.length ? c.usage.timing.map((t) => (t === "morning" ? "朝" : "夜")).join("・") : "使用する時間帯は未確認です。"}</p><p>${esc(c.usage?.order_note)}</p>${link(c.usage?.source)}${[...new Set(notes)].map((n) => `<p class="note">${esc(n)}</p>`).join("")}<p class="note">参考価格の確認日：${esc(c.price_checked_at || "未確認")}<br>${esc(c.price_note)}</p>${link(c.price_source, "価格の出典")}</div></div></details>`;
+    )}${c.owned_relation?.active_ingredients?.length ? `<h4>この候補の有効成分</h4><p>${c.owned_relation.active_ingredients.map((a) => `<span class="tag">${esc(a)}</span>`).join("")}</p>` : ""}<h4>順位の理由</h4><p>${esc(c.rank_reason)}</p>${(ex.reasons || []).map((r) => `<p class="note">${esc(r.text)}</p>`).join("")}</div><div class="detail-block"><h4>使い方と確認事項</h4><p>${c.usage?.timing?.length ? c.usage.timing.map((t) => (t === "morning" ? "朝" : "夜")).join("・") : "使用する時間帯は未確認です。"}</p><p>${esc(c.usage?.order_note)}</p>${link(c.usage?.source)}${[...new Set(notes)].map((n) => `<p class="note">${esc(n)}</p>`).join("")}<p class="note">参考価格の確認日：${esc(c.price_checked_at || "未確認")}<br>${esc(c.price_note)}</p>${link(c.price_source, "価格の出典")}</div></div></details>`;
+}
+// 入れ替える手持ちと候補の、メーカーの使用感の説明を並べる（重い・軽いの判定はしない）
+function textureCompare(c) {
+  const rows = Object.entries(c.owned_relation?.replaced_textures || {});
+  if (!rows.length) return "";
+  const mine = c.texture?.maker_description || "メーカーの説明を確認できず";
+  return `<div class="texture-compare"><p class="micro">使用感の比較（メーカーの説明）</p>${rows
+    .map(
+      ([name, desc]) =>
+        `<p>今の${esc(name)}：${esc(desc || "メーカーの説明を確認できず")}<span aria-hidden="true"> → </span><span class="sr-only">、</span>この候補：${esc(mine)}</p>`,
+    )
+    .join("")}</div>`;
 }
 function productCard(c, index, result) {
   const card = document.createElement("article");
@@ -1045,7 +1107,10 @@ function productCard(c, index, result) {
     bad: "ベタつきへの否定が多い",
     insufficient: "情報が足りない",
   }[c.texture?.stickiness_level];
-  card.innerHTML = `${mediaMarkup(c, index + 1)}<div class="product-copy"><p class="product-brand">${esc(c.brand)}</p><h2 class="product-name">${esc(c.name)}</h2><p class="product-meta">${esc(CATEGORY[c.category])}${c.regulatory_class === "quasi_drug" ? " / 医薬部外品" : ""}</p>${priceMarkup(c)}<p class="product-summary">${esc(c.explanation?.summary || rel.label)}</p><dl class="fit-facts"><div><dt>悩みとの関連</dt><dd>${esc(shortRel)}</dd></div><div><dt>使い心地の傾向</dt><dd>${esc(shortTexture)}</dd></div></dl>${
+  const routineFact = result.is_preview
+    ? ""
+    : `<div><dt>手持ちとの補い合い</dt><dd>${esc(ROUTINE_TEXT[c.owned_relation?.routine_level] || ROUTINE_TEXT.unknown)}</dd></div>`;
+  card.innerHTML = `${mediaMarkup(c, index + 1)}<div class="product-copy"><p class="product-brand">${esc(c.brand)}</p><h2 class="product-name">${esc(c.name)}</h2><p class="product-meta">${esc(CATEGORY[c.category])}${c.regulatory_class === "quasi_drug" ? " / 医薬部外品" : ""}</p>${priceMarkup(c)}<p class="product-summary">${esc(c.explanation?.summary || rel.label)}</p><dl class="fit-facts"><div><dt>悩みとの関連</dt><dd>${esc(shortRel)}</dd></div><div><dt>使い心地の傾向</dt><dd>${esc(shortTexture)}</dd></div>${routineFact}</dl>${textureCompare(c)}${
     index === 0
       ? reviewChart(
           c.texture?.aspects?.find((a) => a.aspect === "stickiness"),
@@ -1074,6 +1139,7 @@ function renderResult(result) {
   for (const id of [
     "candidates-list",
     "comparison",
+    "other-step",
     "owned-analysis",
     "ranking-why",
     "status-message",
@@ -1143,6 +1209,7 @@ function renderResult(result) {
       list.append(alternatives);
     }
     renderComparison(result);
+    $("other-step").innerHTML = otherStepMarkup(result.other_step);
     updatePriorityButtons();
   }
   renderOwnedAnalysis(result);
@@ -1156,12 +1223,12 @@ function updatePriorityButtons() {
 $("btn-priority-concern").addEventListener("click", () =>
   rerank(
     state.currentResult?.is_preview
-      ? ["concern", "stickiness", "price"]
+      ? ["concern", "routine", "stickiness", "price"]
       : defaultPriorities(),
   ),
 );
 $("btn-priority-light").addEventListener("click", () =>
-  rerank(["stickiness", "concern", "price"]),
+  rerank(["stickiness", "concern", "routine", "price"]),
 );
 async function rerank(priorities) {
   if (
@@ -1223,21 +1290,72 @@ async function rerank(priorities) {
     if (version === state.version) state.request = null;
   }
 }
+// 1位と2位の差を、折りたたまずに1文で出す（順位の計算で最初に差がついた観点）
+function rankLead(result) {
+  const cmp = result.ranking?.comparisons?.[0],
+    cs = result.candidates || [];
+  if (!cmp || cs.length < 2) return "";
+  const name = (id) => cs.find((c) => c.product_id === id)?.name || id;
+  return `<p class="rank-lead"><strong>${esc(name(cmp.winner))}を${esc(name(cmp.loser))}より上にした理由</strong><span>${esc(cmp.detail)}</span></p>`;
+}
 function renderComparison(result) {
   const cs = result.candidates;
   if (cs.length < 2) return;
   const row = (label, fn) =>
     `<tr><th scope="row">${label}</th>${cs.map((c, i) => `<td class="${i === 0 ? "best" : ""}">${fn(c)}</td>`).join("")}</tr>`;
   $("comparison").innerHTML =
-    `<div class="block-heading"><h2>違いを、ひと目で。</h2><span>SIDE BY SIDE</span></div><div class="comparison-wrap" tabindex="0" role="region" aria-label="商品比較表。スマホでは横にスクロールできます"><table class="comparison-table"><caption>悩みとの関連・使用感・参考価格で比較。横にスクロールできます。</caption><thead><tr><th scope="col">比べるポイント</th>${cs.map((c) => `<th scope="col"><span class="micro">${esc(c.brand)}</span><span class="table-name">${esc(c.name)}</span></th>`).join("")}</tr></thead><tbody>${row("参考価格", (c) => (c.price_jpy == null ? "未確認" : `¥${Number(c.price_jpy).toLocaleString()}<span class="micro">税込${c.volume_text ? ` / ${esc(c.volume_text)}` : ""}</span>`))}${row("悩みとの関連", (c) => esc(c.concern_relevance.label))}${row("ベタつき", (c) => esc(c.texture.stickiness_label))}${row("情報の範囲", (c) => `${c.review_scope.analyzed_count}${c.review_scope.unit === "sources" ? "情報源" : "件の口コミ"}`)}${row("使う時間帯", (c) => (c.usage.timing.length ? c.usage.timing.map((t) => (t === "morning" ? "朝" : "夜")).join("・") : "未確認"))}</tbody></table></div>`;
+    `<div class="block-heading"><h2>違いを、ひと目で。</h2><span>SIDE BY SIDE</span></div>${rankLead(result)}<div class="comparison-wrap" tabindex="0" role="region" aria-label="商品比較表。スマホでは横にスクロールできます"><table class="comparison-table"><caption>悩みとの関連・使用感・参考価格で比較。横にスクロールできます。</caption><thead><tr><th scope="col">比べるポイント</th>${cs.map((c) => `<th scope="col"><span class="micro">${esc(c.brand)}</span><span class="table-name">${esc(c.name)}</span></th>`).join("")}</tr></thead><tbody>${row("参考価格", (c) => (c.price_jpy == null ? "未確認" : `¥${Number(c.price_jpy).toLocaleString()}<span class="micro">税込${c.volume_text ? ` / ${esc(c.volume_text)}` : ""}</span>`))}${row("悩みとの関連", (c) => esc(c.concern_relevance.label))}${result.is_preview ? "" : row("手持ちとの補い合い", (c) => esc(ROUTINE_TEXT[c.owned_relation?.routine_level] || ROUTINE_TEXT.unknown))}${row("ベタつき", (c) => esc(c.texture.stickiness_label))}${row("情報の範囲", (c) => `${c.review_scope.analyzed_count}${c.review_scope.unit === "sources" ? "情報源" : "件の口コミ"}`)}${row("使う時間帯", (c) => (c.usage.timing.length ? c.usage.timing.map((t) => (t === "morning" ? "朝" : "夜")).join("・") : "未確認"))}</tbody></table></div>`;
+}
+function otherStepMarkup(o) {
+  if (!o?.products?.length) return "";
+  const price = (p) =>
+    p.price_jpy == null
+      ? "価格は未確認"
+      : `¥${Number(p.price_jpy).toLocaleString()}（税込・検索時点）`;
+  return `<div class="block-heading"><h2>ほかのアイテムで、検討できること。</h2><span>ANOTHER STEP</span></div><div class="other-step"><p>${esc(o.message)}</p><ul>${o.products
+    .map(
+      (p) =>
+        `<li><span class="micro">${esc(p.brand)}</span><strong>${esc(p.name)}</strong><span>${esc(price(p))}</span><span>${esc(o.direction_label)}の成分：${esc((p.ingredients || []).join("、"))}</span>${link(p.source, "検索で確認した出典")}</li>`,
+    )
+    .join(
+      "",
+    )}</ul>${o.cautions ? `<p class="note">成分の資料に書かれた注意：${esc(o.cautions)}</p>${link(o.caution_source, "資料の出典")}` : ""}<p class="note">${esc(o.note)}</p></div>`;
+}
+// 手持ちのステップ × 方向性の表。各行に全成分の出典と確認範囲を付ける
+function shelfTable(analysis) {
+  const dirs = analysis.coverage || [];
+  const products = [...analysis.products].sort(
+    (a, b) => (ORDER[a.category] ?? 9) - (ORDER[b.category] ?? 9),
+  );
+  const scope = (p) =>
+    !p.ingredients_available
+      ? "未確認"
+      : p.ingredients_complete
+        ? "全体を確認"
+        : "一部のみ確認";
+  const cell = (p, d) => {
+    const names = [
+      ...new Set(
+        (p.directions_found || [])
+          .filter((h) => h.direction_id === d.direction_id)
+          .map((h) => h.name),
+      ),
+    ];
+    return names.length ? esc(names.join("、")) : "—";
+  };
+  return `<div class="comparison-wrap" tabindex="0" role="region" aria-label="手持ちの成分の表。スマホでは横にスクロールできます"><table class="comparison-table shelf-table"><caption>手持ちの全成分表示で確認できた成分。横にスクロールできます。</caption><thead><tr><th scope="col">手持ち</th>${dirs.map((d) => `<th scope="col">${esc(d.label)}</th>`).join("")}<th scope="col">有効成分</th><th scope="col">全成分の確認</th></tr></thead><tbody>${products
+    .map(
+      (p) =>
+        `<tr class="${p.replaced ? "replaced" : ""}"><th scope="row"><span class="micro">${esc(CATEGORY[p.category] || "その他")}</span><span class="table-name">${esc([p.brand, p.name].filter(Boolean).join(" "))}</span>${p.replaced ? '<span class="replace-badge">入れ替え予定</span>' : ""}</th>${dirs.map((d) => `<td>${cell(p, d)}</td>`).join("")}<td>${esc((p.active_ingredients || []).join("、") || "明記を確認できず")}</td><td>${esc(scope(p))}${link(p.ingredient_source, "全成分の出典")}</td></tr>`,
+    )
+    .join("")}</tbody></table></div>`;
 }
 function renderOwnedAnalysis(result) {
   const analysis = result.owned_analysis,
     logs = result.research_log || [];
   let html = "";
   if (!result.is_preview && analysis?.products?.length) {
-    html =
-      '<div class="block-heading"><h2>今のケアとのつながり。</h2><span>ON YOUR SHELF</span></div><p class="note">手持ちの表示で確認できた成分です。「見当たらない」は、肌に不足しているという意味ではありません。</p><div class="coverage-grid">';
+    html = `<div class="block-heading"><h2>今のケアとのつながり。</h2><span>ON YOUR SHELF</span></div><p class="note">手持ちの表示で確認できた成分です。「見当たらない」は、肌に不足しているという意味ではありません。</p>${shelfTable(analysis)}${analysis.replaced_product_ids?.length ? '<p class="note">下の確認結果は、「入れ替え予定」の手持ちを除いたセットで判断しています。</p>' : ""}<div class="coverage-grid">`;
     html += (analysis.coverage || [])
       .map(
         (c) =>
@@ -1314,16 +1432,20 @@ function renderRoutines() {
       '<p class="soft-note">使い方の案を確認できませんでした。商品の比較に戻ってください。</p>';
     return;
   }
-  container.innerHTML = `${result.is_preview ? '<p class="soft-note">手持ち未入力のサンプルです。選んだ商品だけの配置を表示しています。</p>' : ""}<div class="routine-tabs" role="group" aria-label="使い方の比較"><button data-view="current" aria-pressed="${state.routineView === "current"}">いまの組み合わせ</button><button data-view="proposed" aria-pressed="${state.routineView === "proposed"}">1本を加えると</button></div><div class="routine-grid"><div class="routine-column"><h2>朝のケア <small>${plan.plan.morning.length}ステップ</small></h2>${routineSteps(plan.plan.morning)}</div><div class="routine-column"><h2>夜のケア <small>${plan.plan.night.length}ステップ</small></h2>${routineSteps(plan.plan.night)}</div></div>${plan.unplaced?.length ? `<div class="unplaced"><h3>使う時間帯の確認待ち</h3><p class="note">朝夜の用法がわからないため、自動では配置していません。</p>${routineSteps(plan.unplaced)}</div>` : ""}<ul class="routine-notes">${(plan.notes || []).map((n) => `<li>${esc(n)}</li>`).join("")}<li>この図は使う順番の目安です。併用の安全性や使用頻度を判定するものではありません。</li></ul>${
+  container.innerHTML = `${result.is_preview ? '<p class="soft-note">手持ち未入力のサンプルです。選んだ商品だけの配置を表示しています。</p>' : ""}<div class="routine-tabs" role="group" aria-label="使い方の比較"><button data-view="current" aria-pressed="${state.routineView === "current"}">いまの組み合わせ</button><button data-view="proposed" aria-pressed="${state.routineView === "proposed"}">${proposed?.diff?.some((d) => d.type === "remove") ? "入れ替えると" : "1本を加えると"}</button></div><div class="routine-grid"><div class="routine-column"><h2>朝のケア <small>${plan.plan.morning.length}ステップ</small></h2>${routineSteps(plan.plan.morning)}</div><div class="routine-column"><h2>夜のケア <small>${plan.plan.night.length}ステップ</small></h2>${routineSteps(plan.plan.night)}</div></div>${plan.unplaced?.length ? `<div class="unplaced"><h3>使う時間帯の確認待ち</h3><p class="note">朝夜の用法がわからないため、自動では配置していません。</p>${routineSteps(plan.unplaced)}</div>` : ""}<ul class="routine-notes">${(plan.notes || []).map((n) => `<li>${esc(n)}</li>`).join("")}<li>この図は使う順番の目安です。併用の安全性や使用頻度を判定するものではありません。</li></ul>${
     plan.diff?.length
       ? `<details class="research-details"><summary>変わること・そのまま残ること</summary>${plan.diff
           .map((d) => {
-            const step = [
-              ...plan.plan.morning,
-              ...plan.plan.night,
-              ...(plan.unplaced || []),
-            ].find((s) => s.product_id === d.product_id);
-            return `<p class="note">${d.type === "add" ? "追加" : "維持"} · ${esc(step?.name || d.product_id)}（${{ both: "朝・夜", morning: "朝", night: "夜", unplaced: "確認待ち" }[d.slot]}）：${esc(d.reason)}</p>`;
+            // 入れ替えで外す手持ちは新しい配置に無いので、今の配置から名前を探す
+            const step = [plan, current]
+              .filter(Boolean)
+              .flatMap((r) => [
+                ...r.plan.morning,
+                ...r.plan.night,
+                ...(r.unplaced || []),
+              ])
+              .find((s) => s.product_id === d.product_id);
+            return `<p class="note">${{ add: "追加", keep: "維持", remove: "入れ替え（外す）", move: "移動" }[d.type] || "維持"} · ${esc(step?.name || d.product_id)}（${{ both: "朝・夜", morning: "朝", night: "夜", unplaced: "確認待ち" }[d.slot]}）：${esc(d.reason)}</p>`;
           })
           .join("")}</details>`
       : ""

@@ -5,6 +5,25 @@ from .schemas import Product, RoutineDiff, RoutinePlan, RoutineSlotPlan, Routine
 
 ORDER = {"cleanser": 0, "lotion": 1, "serum": 2, "emulsion": 3, "cream": 4, "sunscreen": 5, "other": 6}
 SLOT_LABEL = {"morning": "朝", "night": "夜"}
+# 種類ごとの役割の目安。検索と選定エージェントへの指示にだけ使い、画面に根拠としては出さない
+ROLE = {
+    "cleanser": "汚れを落として洗い流す。肌に残る時間は短い",
+    "lotion": "洗顔後に、水分と水に溶けやすい成分を補う",
+    "serum": "特定の目的の成分を届ける",
+    "emulsion": "水分と油分で肌をやわらげ、水分が逃げにくいようにする",
+    "cream": "油分が多く、肌の表面を覆って水分が逃げにくいようにする",
+    "sunscreen": "紫外線を防ぐ",
+    "other": "スキンケア",
+}
+OTHER_STEP_CATEGORIES = ("lotion", "serum", "emulsion", "cream")  # 別の案で検討する種類
+
+
+def replaced_ids(cat: Catalog, owned_ids: list[str], keep_ids: list[str], category: str) -> list[str]:
+    """探すアイテムと同じ種類で、「残したい」に入っていない手持ち。入れ替える前提で扱う（種類が不明なものは除く）。"""
+    if category == "other":
+        return []
+    return [pid for pid in dict.fromkeys(owned_ids)
+            if pid in cat.products and cat.product(pid).category == category and pid not in keep_ids]
 
 
 def _slots(p: Product) -> tuple[list[str], str | None]:
@@ -41,9 +60,15 @@ def current_routine(cat: Catalog, owned_ids: list[str]) -> RoutinePlan:
                        notes=notes, unplaced=unplaced)
 
 
+def _slot_of(slots: list[str]) -> str:
+    return ("both" if len(slots) == 2 else slots[0]) if slots else "unplaced"
+
+
 def simulate_routine(cat: Catalog, owned_ids: list[str], keep_ids: list[str], candidate_id: str) -> RoutinePlan:
-    owned = [cat.product(pid) for pid in dict.fromkeys(owned_ids) if pid in cat.products and pid != candidate_id]
     cand = cat.product(candidate_id)
+    replaced = set(replaced_ids(cat, owned_ids, keep_ids, cand.category))
+    owned = [cat.product(pid) for pid in dict.fromkeys(owned_ids)
+             if pid in cat.products and pid != candidate_id and pid not in replaced]
     plan, notes, unplaced = _plan([*owned, cand], candidate_id)
     where, _ = _slots(cand)
     diff = []
@@ -54,16 +79,20 @@ def simulate_routine(cat: Catalog, owned_ids: list[str], keep_ids: list[str], ca
     else:
         diff.append(RoutineDiff(type="add", product_id=candidate_id, slot="unplaced",
                                 reason="使う時間帯が未確認のため、確認待ちに追加します"))
+    for pid in dict.fromkeys(owned_ids):
+        if pid in replaced:
+            slots, _ = _slots(cat.product(pid))
+            diff.append(RoutineDiff(type="remove", product_id=pid, slot=_slot_of(slots),
+                                    reason="探しているアイテムと同じ種類のため、入れ替える案です（使い続ける場合は「残したい」にチェックしてください）"))
     same_cat = [o for o in owned if o.category == cand.category]
     if same_cat:
-        notes.append("同じカテゴリの手持ちがあります。追加する案を表示しています。置き換えや併用については製品の使い方を確認してください")
+        notes.append("同じ種類の手持ち（残したいもの）と併用する案です。併用については製品の使い方を確認してください")
     for o in owned:
         slots, _ = _slots(o)
         reason = "残したい商品として指定されています" if o.product_id in keep_ids else "手持ちとして残します"
         if not slots:
             reason += "。使う時間帯は確認待ちです"
-        diff.append(RoutineDiff(type="keep", product_id=o.product_id,
-                                slot=("both" if len(slots) == 2 else slots[0]) if slots else "unplaced", reason=reason))
+        diff.append(RoutineDiff(type="keep", product_id=o.product_id, slot=_slot_of(slots), reason=reason))
     if cand.usage.timing_strength == "recommended" and len(where) == 1:
         notes.append(f"{cand.name}は資料で{SLOT_LABEL[where[0]]}の使用が推奨されています（それ以外の時間帯を禁止する記載ではありません）")
     notes.append("並び順はカテゴリをもとにした目安です。各製品の用法・使用頻度を優先してください")

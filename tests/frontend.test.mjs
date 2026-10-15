@@ -280,7 +280,7 @@ test("stickiness is not silently prioritized when the user did not request it", 
   const ctx = runtime();
   assert.equal(
     vm.runInContext("JSON.stringify(defaultPriorities())", ctx),
-    '["concern","price"]',
+    '["concern","routine","price"]',
   );
   vm.runInContext(
     'state.conditions={texture_preferences:[{aspect:"stickiness",preference:"avoid"}]}',
@@ -288,7 +288,7 @@ test("stickiness is not silently prioritized when the user did not request it", 
   );
   assert.equal(
     vm.runInContext("JSON.stringify(defaultPriorities())", ctx),
-    '["concern","stickiness","price"]',
+    '["concern","routine","stickiness","price"]',
   );
 });
 
@@ -564,4 +564,191 @@ test("an immediate result keeps the in-flight downward transition intact", () =>
     52,
   );
   assert.equal(run(ctx, "document.activeElement.id"), "research-stage");
+});
+
+test("same-category owned items are announced as replacements unless kept", () => {
+  const ctx = runtime();
+  const text = (items) => {
+    ctx.items = items;
+    return run(ctx, 'replacementText({category:"lotion"}, items)');
+  };
+  const lotion = {
+    brand: "肌ラボ",
+    name: "白潤プレミアム",
+    category: "lotion",
+  };
+  assert.match(
+    text([lotion, { brand: "B", name: "乳液", category: "emulsion" }]),
+    /化粧水を探しているため、今の肌ラボ 白潤プレミアムと入れ替える前提で調べます/,
+  );
+  assert.equal(text([{ ...lotion, keep: true }]), "");
+  ctx.items = [{ ...lotion, category: "other" }];
+  assert.equal(run(ctx, 'replacementText({category:"other"}, items)'), "");
+});
+
+test("the reason the first beat the second is shown outside the fold", () => {
+  const ctx = runtime();
+  ctx.input = {
+    candidates: [
+      { product_id: "a", name: "コラージュ<b>" },
+      { product_id: "b", name: "キュレル" },
+    ],
+    ranking: {
+      comparisons: [
+        {
+          winner: "a",
+          loser: "b",
+          deciding_aspect: "手持ちとの補い合い",
+          detail: "手持ちとの補い合い：Aは「手持ちに無い方向性を加える」",
+        },
+      ],
+    },
+  };
+  const html = run(ctx, "rankLead(input)");
+  assert.match(html, /コラージュ&lt;b&gt;をキュレルより上にした理由/);
+  assert.match(html, /手持ちに無い方向性を加える/);
+  ctx.input = {
+    candidates: [{ product_id: "a", name: "A" }],
+    ranking: { comparisons: [] },
+  };
+  assert.equal(run(ctx, "rankLead(input)"), "");
+});
+
+test("the shelf table shows ingredients, actives, scope, source links and the replacement mark", () => {
+  const ctx = runtime();
+  ctx.input = {
+    coverage: [
+      { direction_id: "hydration", label: "保湿" },
+      { direction_id: "retinoid", label: "レチノイド" },
+    ],
+    products: [
+      {
+        brand: "B",
+        name: "乳液",
+        category: "emulsion",
+        ingredients_available: true,
+        ingredients_complete: false,
+        directions_found: [{ name: "セラミドNP", direction_id: "hydration" }],
+        active_ingredients: ["トラネキサム酸"],
+        ingredient_source: { url: "javascript:alert(1)", title: "x" },
+      },
+      {
+        brand: "B",
+        name: "化粧水<script>",
+        category: "lotion",
+        replaced: true,
+        ingredients_available: true,
+        ingredients_complete: true,
+        directions_found: [],
+        active_ingredients: [],
+        ingredient_source: {
+          url: "https://maker.example/lotion",
+          title: "maker",
+        },
+      },
+    ],
+  };
+  const html = run(ctx, "shelfTable(input)");
+  assert(
+    html.indexOf("化粧水&lt;script&gt;") < html.indexOf("乳液"),
+    "使う順番で並ぶ",
+  );
+  assert.match(html, /入れ替え予定/);
+  assert.match(
+    html,
+    /<td>セラミドNP<\/td><td>—<\/td><td>トラネキサム酸<\/td><td>一部のみ確認<\/td>/,
+  );
+  assert.match(
+    html,
+    /明記を確認できず<\/td><td>全体を確認<a class="source-link" href="https:\/\/maker\.example\/lotion"/,
+  );
+  assert(!html.includes("javascript:"));
+});
+
+test("candidate details compare textures and list actives without judging them", () => {
+  const ctx = runtime();
+  ctx.input = {
+    texture: { maker_description: "さらっとなじんでべたつかない" },
+    owned_relation: {
+      replaced_textures: {
+        白潤プレミアム: "美容液のようなさっぱりタイプ",
+        名前のみ: null,
+      },
+      active_ingredients: ["トラネキサム酸"],
+      note: "有効成分のトラネキサム酸は、手持ちの乳液にも含まれます。重なり自体は不要・危険という意味ではありません。",
+    },
+    concern_relevance: {},
+    review_scope: {},
+    usage: {},
+  };
+  const compare = run(ctx, "textureCompare(input)");
+  assert.match(
+    compare,
+    /今の白潤プレミアム：美容液のようなさっぱりタイプ.*この候補：さらっとなじんでべたつかない/,
+  );
+  assert.match(compare, /今の名前のみ：メーカーの説明を確認できず/);
+  const detail = run(ctx, "detailMarkup(input)");
+  assert.match(
+    detail,
+    /<p>有効成分のトラネキサム酸は、手持ちの乳液にも含まれます。<\/p><p>重なり自体は不要・危険という意味ではありません。<\/p>/,
+  );
+  assert.match(
+    detail,
+    /この候補の有効成分<\/h4><p><span class="tag">トラネキサム酸<\/span>/,
+  );
+  ctx.input = { owned_relation: {} };
+  assert.equal(run(ctx, "textureCompare(input)"), "");
+});
+
+test("the other-step suggestion shows verified products, cautions and its limits", () => {
+  const ctx = runtime();
+  ctx.input = {
+    direction_label: "レチノイド",
+    message:
+      "化粧水の候補では、レチノイドの成分を確認できませんでした。今の乳液を替える場合の、乳液の候補です。",
+    products: [
+      {
+        brand: "B",
+        name: "<img src=x>乳液",
+        price_jpy: null,
+        ingredients: ["パルミチン酸レチノール"],
+        source: { url: "https://example.com/p", title: "maker" },
+      },
+    ],
+    cautions: "夜のみ使用",
+    caution_source: { url: "https://www.aad.org/x", title: "AAD" },
+    note: "口コミと全成分の全体は調べていません。購入前に公式ページで確認してください。",
+  };
+  const html = run(ctx, "otherStepMarkup(input)");
+  assert.match(html, /今の乳液を替える場合の、乳液の候補です/);
+  assert.match(html, /&lt;img src=x&gt;乳液/);
+  assert.match(html, /価格は未確認/);
+  assert.match(html, /レチノイドの成分：パルミチン酸レチノール/);
+  assert.match(html, /成分の資料に書かれた注意：夜のみ使用/);
+  assert.match(html, /口コミと全成分の全体は調べていません/);
+  ctx.input = { products: [] };
+  assert.equal(run(ctx, "otherStepMarkup(input)"), "");
+});
+
+test("a replacement plan labels the removed item and the tab", () => {
+  const ctx = runtime();
+  run(
+    ctx,
+    `
+    state.currentResult = {routines:[
+      {product_id:null, plan:{morning:[{product_id:"own_1",brand:"B",name:"今の化粧水",category:"lotion"}],night:[]}, diff:[], notes:[]},
+      {product_id:"c1", plan:{morning:[{product_id:"c1",brand:"B",name:"新しい化粧水",category:"lotion",is_new:true}],night:[]},
+       diff:[{type:"add",product_id:"c1",slot:"morning",reason:"r"},{type:"remove",product_id:"own_1",slot:"both",reason:"入れ替える案です"}], notes:[]}
+    ]};
+    state.currentRoutineProductId = "c1";
+    state.routineView = "proposed";
+    renderRoutines();
+  `,
+  );
+  const html = run(ctx, '$("routines-container").innerHTML');
+  assert.match(html, />入れ替えると</);
+  assert.match(
+    html,
+    /入れ替え（外す） · 今の化粧水（朝・夜）：入れ替える案です/,
+  );
 });

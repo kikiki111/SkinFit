@@ -7,6 +7,10 @@ from .schemas import PRIORITY_LABELS, Comparison, Ranking
 CONCERN_LEVEL = {"claim": 2, "ingredient": 1, "none": 0}
 CONCERN_TEXT = {"claim": "製品の表示が悩みに対応", "ingredient": "方向性の成分を配合", "none": "関連を確認できない"}
 STICKINESS_LEVEL = {"good": 3, "mixed": 2, "bad": 1, "insufficient": 0}
+# 確認できない場合を有利にしないため、unknown は overlap と同じ扱いにする
+ROUTINE_LEVEL = {"adds": 1, "overlap": 0, "unknown": 0}
+ROUTINE_TEXT = {"adds": "手持ちに無い方向性を加える", "overlap": "手持ちに無い方向性は加わらない",
+                "unknown": "手持ちの成分を確認しきれず判断できない"}
 STICKINESS_TEXT = {"good": "否定的な口コミが少ない", "mixed": "評価が分かれる", "bad": "否定的な口コミが多い", "insufficient": "情報不足"}
 
 
@@ -18,11 +22,14 @@ class RankInput:
     stickiness_level: str  # good / mixed / bad / insufficient
     price: int
     analyzed_count: int
+    routine_level: str = "unknown"  # adds / overlap / unknown（入れ替え後の手持ちとの比較）
 
 
 def _value(c: RankInput, key: str) -> int:
     if key == "concern":
         return CONCERN_LEVEL[c.concern_level]
+    if key == "routine":
+        return ROUTINE_LEVEL[c.routine_level]
     if key == "stickiness":
         return STICKINESS_LEVEL[c.stickiness_level]
     if key == "price":
@@ -33,6 +40,8 @@ def _value(c: RankInput, key: str) -> int:
 def _describe(c: RankInput, key: str) -> str:
     if key == "concern":
         return CONCERN_TEXT[c.concern_level]
+    if key == "routine":
+        return ROUTINE_TEXT[c.routine_level]
     if key == "stickiness":
         return STICKINESS_TEXT[c.stickiness_level]
     return f"{c.price:,}円"

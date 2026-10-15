@@ -1154,6 +1154,69 @@ summary::-webkit-details-marker {
 .coverage-card p {
   font-size: 12px;
 }
+.rank-lead {
+  border-left: 2px solid var(--accent);
+  padding: 4px 0 4px 16px;
+  margin: 0 0 20px;
+  font-size: 13px;
+  line-height: 1.9;
+}
+.rank-lead strong {
+  display: block;
+  font-weight: 600;
+}
+.texture-compare {
+  border-bottom: 1px solid var(--line);
+  margin: -8px 0 20px;
+  padding-bottom: 16px;
+  font-size: 12px;
+  line-height: 1.9;
+}
+.shelf-table {
+  margin-bottom: 20px;
+}
+.shelf-table th:first-child {
+  width: 190px;
+}
+.shelf-table tr.replaced th,
+.shelf-table tr.replaced td {
+  color: var(--muted);
+}
+.shelf-table .source-link {
+  display: block;
+}
+.replace-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 7px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 10px;
+}
+.other-step {
+  border: 1px solid var(--line);
+  background: var(--white);
+  padding: 22px;
+  font-size: 13px;
+  line-height: 1.9;
+}
+.other-step ul {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+.other-step li {
+  display: grid;
+  gap: 2px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+.other-step li strong {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 500;
+}
 .research-details {
   border-block: 1px solid var(--line);
   margin-top: 28px;

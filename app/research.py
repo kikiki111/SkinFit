@@ -21,6 +21,7 @@ from . import gemini, product_image
 from .config import settings
 from .logging_utils import add_usage, log_event
 from .media import media_of, strip_brand
+from .routine import ROLE
 from .schemas import (ASPECT_LABELS, Claim, Direction, Evidence, Product, ResearchStep, Review, Source, SourceRef, Unknown,
                       Usage, Volume)
 
@@ -173,6 +174,7 @@ class _FactsOut(BaseModel):
     ingredients_full: list[str]
     ingredients_complete: bool
     ingredients_sources: list[int]
+    active_ingredients: list[str] = []  # 既定値は、直接組み立てる呼び出し元（下書き作成・テスト）との互換のため
     usage_timing: list[str]
     usage_strength: str  # required / recommended / not_stated
     usage_note: str | None
@@ -221,6 +223,7 @@ STRUCTURE_SYSTEM = """あなたは、検索で集めた本文を構造化する�
 - 本文に書かれていることだけを使い、推測で埋めない。本文に無い項目は空・null にし、unknown_fields に項目名を入れる
 - 全成分は本文の表示どおり・順番どおりに1成分ずつ。本文に全成分が無ければ空配列。「有効成分」「その他の成分」の区分があれば両方を入れる
 - ingredients_complete は、本文に全成分表示の全体（最後の成分まで）があると判断できる場合だけ true。主な成分や一部の抜粋なら false
+- active_ingredients は、本文に「有効成分」と明記された成分だけ（医薬部外品）。全成分表示の名前で書く。宣伝用の名前に注記で成分名が示されていれば、その成分名を使う。明記が無ければ空配列
 - 効能表示は本文の原文のまま。type は「効能評価試験済み」の注記があれば efficacy_tested、医薬部外品の効能（シワを改善する等）なら quasi_drug_efficacy、それ以外の宣伝文句は marketing
 - concern_tags は、小じわに関わる表示なら fine_lines、乾燥・保湿なら dryness、指示文に書かれた「本人の悩み」に関わる表示なら target（複数可）
 - usage_timing は morning / night。「夜用」など指定なら required、「おすすめ」なら recommended、記載が無ければ not_stated（このとき usage_timing は空）
@@ -264,13 +267,17 @@ def _keep_values_in_text(f: "_FactsOut", text_norm: str) -> "_FactsOut":
             update["ingredients_full"] = kept
             # 本文で確かめられない成分が混ざっていた場合、全成分を全部確認できたとは扱わない
             update["ingredients_complete"] = False
+    actives = [a for a in f.active_ingredients if _norm(a) and _norm(a) in text_norm]
+    if len(actives) < len(f.active_ingredients):
+        update["active_ingredients"] = actives
     return f.model_copy(update=update) if update else f
 
 
 def _facts_to_product(f: _FactsOut, g: GroundedResult, product_id: str, role: str, fallback: dict, concern_id: str | None = None) -> Product:
     if not g.sources:
         # 検索の出典が無い内容（モデルの記憶だけの答え）は使わない
-        f = f.model_copy(update={"ingredients_full": [], "ingredients_complete": False, "claims": [], "usage_timing": [],
+        f = f.model_copy(update={"ingredients_full": [], "ingredients_complete": False, "active_ingredients": [],
+                                 "claims": [], "usage_timing": [],
                                  "price_jpy_tax_included": None, "unknown_fields": list(f.unknown_fields) + ["出典"]})
     text_norm = _norm(g.text)
     # 検索で得た本文に実際に書かれている値だけを使う（Webページに混ざった指示や、構造化の取り違えで値が変わるのを防ぐ）
@@ -308,6 +315,7 @@ def _facts_to_product(f: _FactsOut, g: GroundedResult, product_id: str, role: st
         ingredients_full=(f.ingredients_full or None) if ing_src else None, ingredients_source_id=ing_src[0].source_id if ing_src else None,
         ingredients_complete=bool(ing_src and f.ingredients_full) and f.ingredients_complete and len(f.ingredients_full) >= MIN_FULL_INGREDIENTS,
         searched_as=f"{fallback.get('brand') or ''} {fallback.get('name') or ''}".strip() or None,
+        active_ingredients=list(dict.fromkeys(f.active_ingredients)),
         claims=claims, maker_texture_description=f.maker_texture_description,
         usage=Usage(timing=timing, timing_strength=strength, order_note=f.usage_note,
                     source_id=usage_src[0].source_id if usage_src else None),
@@ -426,7 +434,8 @@ async def registered_owned(item: dict, product_id: str, reg: Product) -> tuple[P
 async def research_owned(item: dict, product_id: str) -> tuple[Product, str | None]:
     label = CATEGORY_LABEL.get(item.get("category") or "", "スキンケア製品")
     prompt = (f"スキンケア製品「{item.get('brand') or ''} {item['name']}」（{label}）の全成分を、メーカー公式の表示どおり・順番どおりに答えてください。"
-              "あわせて、製品の種類（化粧水など）と、朝・夜の使い方の指定があればそれも。" + BRIEF)
+              "あわせて、製品の種類（化粧水など）、医薬部外品なら有効成分、メーカーの使用感の説明（さっぱり・しっとり等）、"
+              "朝・夜の使い方の指定があればそれも。" + BRIEF)
     target = f"{item.get('brand') or ''} {item['name']}".strip()
     image = _find_image(item.get("brand"), item["name"])
     try:
@@ -459,8 +468,11 @@ def discover_prompt(conditions, directions: list[dict], owned: list, limit: int 
     owned_names = "、".join(f"{p.brand} {p.name}" for p in owned) or "なし"
     claim_hint = ("「乾燥による小ジワを目立たなくする」「シワを改善する」の表示があるもの" if conditions.concern == "fine_lines"
                   else f"悩み「{conditions.concern_label}」に関わる効能表示があるもの")
-    return (f"日本で現在販売中の{CATEGORY_LABEL.get(conditions.category, '美容液')}で、{_budget_text(conditions)}、"
+    label = CATEGORY_LABEL.get(conditions.category, '美容液')
+    return (f"日本で現在販売中の{label}で、{_budget_text(conditions)}、"
             f"次の方向性の成分を配合したもの、または{claim_hint}を、最大{limit}つ挙げてください。"
+            f"{label}の役割（{ROLE.get(conditions.category, ROLE['other'])}）に合う製品を選び、"
+            f"{label}として配合例が少ない方向性なら、無理に挙げず少なくてよい。"
             f"方向性: {dir_text}。避けたい成分: {'、'.join(conditions.avoid_ingredients) or 'なし'}。手持ち（{owned_names}）と同じ製品は除く。"
             f"使用感の好み: {prefs}。重めの使用感と軽めの使用感の両方を含める。"
             "各候補はブランド・製品名・税込価格・関係する成分または表示・使用感（重め/軽め）を1行で。" + BRIEF)
@@ -523,6 +535,26 @@ async def discover_candidates(conditions, directions: list[dict], owned: list[Pr
                  f"条件に合う候補を{len(stubs)}件見つけました", details, "ok" if stubs else "failed")
     log_event("research_result", step="discover", found=[f"{x['brand']} {x['name']}" for x in stubs])
     return stubs, g.sources, g.entry_point_html, step
+
+
+async def discover_other_step(conditions, direction: dict, owned: list, category: str, limit: int = 2):
+    """探すアイテムでは補えない方向性を、別の種類のアイテムで探す（参考の案。口コミと全成分の全体は調べない）。
+
+    価格と成分は、検索本文に書かれている値だけを残す。出典の無い候補は使わない。方向性との照合は呼び出し側で行う。
+    """
+    cond = conditions.model_copy(update={"category": category})
+    g = await grounded(discover_prompt(cond, [direction], owned, limit) + MUST_SEARCH, "other_step")
+    stubs, step = await structure_discovery(cond, g, "別のアイテムの案：")
+    text_norm = _norm(g.text)
+    kept = []
+    for st in stubs:
+        if not st.get("sources"):
+            continue
+        price = st.get("price_jpy_tax_included")
+        st["price_jpy_tax_included"] = price if price is not None and _price_in_text(price, text_norm) else None
+        st["key_ingredients"] = [i for i in st.get("key_ingredients", []) if _norm(i) and _norm(i) in text_norm]
+        kept.append(st)
+    return kept, step, g.entry_point_html
 
 
 class _OpinionsOut(BaseModel):
