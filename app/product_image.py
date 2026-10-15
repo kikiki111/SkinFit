@@ -15,8 +15,8 @@ import httpx
 
 from .config import settings
 from .logging_utils import add_usage, log_event
-from .media import _key, strip_brand
 from .schemas import ProductMedia
+from .textkey import strip_brand, text_key
 
 YAHOO_URL = "https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch"
 RAKUTEN_URL = "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701"
@@ -59,12 +59,12 @@ def _tokens(name: str) -> list[str]:
 
 def matches(brand: str, name: str, title: str, listed_brand: str = "") -> bool:
     """商品タイトルが、この商品の単品の出品と言えるか。"""
-    t = _key(title)
+    t = text_key(title)
     if not t:
         return False
-    if not all(_key(w) in t for w in _tokens(strip_brand(brand, name))):
+    if not all(text_key(w) in t for w in _tokens(strip_brand(brand, name))):
         return False
-    if brand and _key(brand) not in t and _key(brand) not in _key(listed_brand):
+    if brand and text_key(brand) not in t and text_key(brand) not in text_key(listed_brand):
         return False
     n = unicodedata.normalize("NFKC", name).casefold()
     return all(m.group(0) in n for m in NOT_SINGLE.finditer(unicodedata.normalize("NFKC", title).casefold()))

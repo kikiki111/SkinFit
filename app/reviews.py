@@ -11,7 +11,6 @@ from . import gemini
 from .catalog import Catalog
 from .schemas import ASPECT_LABELS, AspectSummary, Review, ReviewExample, ReviewScope, Texture
 
-MIN_REVIEWS = 5  # これ未満は「口コミが少ない」と表示する
 POLARITIES = {"positive", "negative", "mixed", "unknown"}
 
 
@@ -89,8 +88,11 @@ def sanitize_findings(cat: Catalog, product_ids: list[str], findings: dict[str, 
     }
 
 
-def stickiness_level(summary: AspectSummary | None, analyzed: int, min_reviews: int = MIN_REVIEWS) -> tuple[str, str]:
-    """ベタつきの段階。否定の割合（混在は半分として数える）で決める。点数としては表示しない。"""
+def stickiness_level(summary: AspectSummary | None, analyzed: int, min_reviews: int) -> tuple[str, str]:
+    """ベタつきの段階。否定の割合（混在は半分として数える）で決める。点数としては表示しない。
+
+    min_reviews は Catalog.min_reviews を渡す（登録済みは5件、その場の調査は3件）。
+    """
     if summary is None or analyzed < min_reviews:
         return "insufficient", "口コミが少なく判断できない"
     mentions = summary.positive + summary.negative + summary.mixed

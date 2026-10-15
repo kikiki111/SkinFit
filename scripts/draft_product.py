@@ -30,7 +30,7 @@ sys.path.insert(0, str(ROOT))
 
 from app import research  # noqa: E402
 from app.catalog import GROUNDING_REDIRECT_HOST  # noqa: E402
-from app.media import product_key  # noqa: E402
+from app.textkey import product_key  # noqa: E402
 from app.schemas import Category, Product, ProductMedia, Source  # noqa: E402
 
 PENDING = ROOT / "data" / "drafts" / "pending"

@@ -4,7 +4,6 @@
 """
 
 import difflib
-import unicodedata
 
 from google.genai import types
 from pydantic import BaseModel
@@ -12,6 +11,7 @@ from pydantic import BaseModel
 from .. import gemini
 from ..catalog import load
 from ..schemas import Detection, DetectionMatch, InventoryResponse
+from ..textkey import text_key
 
 
 class _Item(BaseModel):
@@ -34,19 +34,15 @@ PHOTO_SYSTEM = """あなたは洗面台の写真から、スキンケア製品�
 ラベルから実際に読み取れた文字（visible_text）を返します。試供品・サンプルの小袋やミニサイズの容器は is_sample を true にしてください。読み取れない項目は null にし、推測で埋めないでください。成分は推測しないでください。最大8件。"""
 
 
-def _norm(s: str | None) -> str:
-    return unicodedata.normalize("NFKC", s or "").lower().replace(" ", "").replace("　", "")
-
-
 def match_catalog(item: _Item, limit: int = 3) -> list[DetectionMatch]:
     """ブランド名と製品名の文字の近さで、カタログ内の候補を並べる。確定は本人が行う。"""
     cat = load()
-    query = _norm(f"{item.brand or ''}{item.name_guess or ''}{item.visible_text or ''}")
+    query = text_key(f"{item.brand or ''}{item.name_guess or ''}{item.visible_text or ''}")
     scored = []
     for p in cat.products.values():
-        target = _norm(f"{p.brand}{p.name}")
+        target = text_key(f"{p.brand}{p.name}")
         score = difflib.SequenceMatcher(None, query, target).ratio()
-        if item.brand and _norm(item.brand) and _norm(item.brand) in target:
+        if item.brand and text_key(item.brand) and text_key(item.brand) in target:
             score += 0.2
         if item.category and item.category == p.category:
             score += 0.1

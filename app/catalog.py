@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from .config import settings
-from .media import product_key
+from .textkey import product_key
 from .schemas import AliasEntry, Conditions, Direction, Evidence, Product, Review, Source, SourceRef
 
 

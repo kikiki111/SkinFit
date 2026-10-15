@@ -19,16 +19,17 @@ const state = {
   photoUrl: null,
   busy: false,
 };
+// 種類の呼び方（app/research.py の CATEGORY_LABEL と同じ。other だけ画面用の名前。tests/test_screen_constants.py で検査）
 const CATEGORY = {
   serum: "美容液",
   lotion: "化粧水",
   emulsion: "乳液",
   cream: "クリーム",
-  cleanser: "クレンジング",
+  cleanser: "洗顔料・クレンジング",
   sunscreen: "日焼け止め",
   other: "その他",
 };
-// 使う順番の目安（app/routine.py の ORDER と同じ）
+// 使う順番の目安（app/routine.py の ORDER と同じ。tests/test_screen_constants.py で検査）
 const ORDER = {
   cleanser: 0,
   lotion: 1,

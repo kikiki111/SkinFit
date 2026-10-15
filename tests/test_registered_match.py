@@ -35,6 +35,7 @@ def test_find_registered_matches_name_and_aliases(registered):
     assert catalog.find_registered(cat, "ちふれ", "化粧水 とてもしっとりタイプ") is registered
     assert catalog.find_registered(cat, "ちふれ", "ちふれ 化粧水　とてもしっとりタイプ") is registered  # ブランドの重複・全角空白
     assert catalog.find_registered(cat, "ちふれ", "とてもしっとり 化粧水") is registered  # 別の書き方
+    assert catalog.find_registered(cat, None, "ちふれ 化粧水 とてもしっとりタイプ") is registered  # ブランドの欄が無い
     assert catalog.find_registered(cat, "ちふれ", "化粧水 しっとりタイプ") is None  # 別のバリエーション
     assert catalog.find_registered(cat, "別ブランド", "化粧水 とてもしっとりタイプ") is None
 

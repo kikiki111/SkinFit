@@ -1,5 +1,6 @@
 """確定値と理由コードから組み立てる定型の説明文。照合に必ず通るように、禁止語・数値を含めない。"""
 
+from .routine import SLOT_LABEL
 from .schemas import CandidateView, Explanation, Reason
 
 CONCERN_SENTENCE = {
@@ -23,7 +24,7 @@ def build(c: CandidateView) -> Explanation:
                source_ids=[c.price_source.source_id] if c.price_source else []),
     ]
     if c.usage.timing:
-        when = "・".join({"morning": "朝", "night": "夜"}[t] for t in c.usage.timing)
+        when = "・".join(SLOT_LABEL[t] for t in c.usage.timing)
         reasons.append(Reason(category="usage", text=f"資料に記載された時間帯（{when}）で手持ちに組み込めます。",
                               source_ids=[c.usage.source.source_id] if c.usage.source else []))
     tradeoffs = []

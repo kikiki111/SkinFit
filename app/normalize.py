@@ -6,6 +6,7 @@ import unicodedata
 from .catalog import Catalog
 from .schemas import (DirectionCoverage, IngredientHit, OwnedAnalysis, OwnedOverlap, OwnedProductView,
                       OwnedRelation, Product)
+from .textkey import text_key
 
 
 # 全成分表示の前置き・記号（医薬部外品の「有効成分：」、注記の「＊」など）
@@ -24,7 +25,8 @@ def clean(name: str) -> str:
 
 
 def _key(name: str) -> str:
-    return clean(name).replace(" ", "").replace("　", "").lower()
+    """成分名の照合キー。前置き・記号・末尾の注記を外してから、表記の幅・空白・大文字小文字をそろえる。"""
+    return text_key(clean(name))
 
 
 def _alias_index(cat: Catalog) -> dict[str, tuple[str, list[str]]]:

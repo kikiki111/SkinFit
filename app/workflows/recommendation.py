@@ -26,6 +26,7 @@ from ..logging_utils import log_event
 from ..routine import OTHER_STEP_CATEGORIES, ORDER, ROLE
 from ..schemas import (Conditions, OtherStepProduct, OtherStepSuggestion, Product, RecommendationResult, RecommendRequest,
                        ResearchStep, SourceRef)
+from ..textkey import product_key
 from . import agents
 
 LIGHT_WORDS = ("さっぱり", "軽", "みずみずし", "ベタつかない", "べたつかない", "さらっと", "サラッと")
@@ -139,11 +140,11 @@ def _routine_steps(cat: Catalog, req: RecommendRequest) -> list[dict]:
 
 def _choose(stubs: list[dict], conditions: Conditions, owned: list[Product], limit: int) -> tuple[list[dict], list[str]]:
     """詳しく調べる候補を選ぶ。予算・手持ちとの重複で外し、効能表示のあるものと軽い使用感のものを含める。"""
-    owned_names = {(p.brand + p.name).replace(" ", "") for p in owned}
+    owned_keys = {product_key(p.brand, p.name) for p in owned}
     ok, notes = [], []
     for s in stubs:
         label = f"{s.get('brand', '')} {s['name']}"
-        if (s.get("brand", "") + s["name"]).replace(" ", "") in owned_names:
+        if product_key(s.get("brand"), s["name"]) in owned_keys:
             notes.append(f"外した：{label}（手持ちと同じ製品）")
             continue
         price = s.get("price_jpy_tax_included")
@@ -238,10 +239,6 @@ def _make_discover_structure(index: int):
     return discover
 
 
-def _stub_key(stub: dict) -> str:
-    return (stub.get("brand", "") + stub["name"]).replace(" ", "").replace("　", "")
-
-
 def prepare_selection(ctx, node_input: dict) -> dict:
     """手持ちの調査と探索の結果をまとめ、必須条件（予算・手持ちとの重複）を当ててから、選定エージェントに渡す。"""
     owned_coverage = _finish_owned(ctx)
@@ -254,8 +251,9 @@ def prepare_selection(ctx, node_input: dict) -> dict:
         if f.get("step"):
             b.setdefault("research_log", []).append(f["step"])
         for st in f.get("stubs", []):
-            if _stub_key(st) not in seen:  # 別の方向性で同じ製品が見つかったら1つにまとめる
-                seen.add(_stub_key(st))
+            key = product_key(st.get("brand"), st["name"])
+            if key not in seen:  # 別の方向性で同じ製品が見つかったら1つにまとめる
+                seen.add(key)
                 stubs.append(st)
     req = _req(ctx)
     cat = _cat(ctx)

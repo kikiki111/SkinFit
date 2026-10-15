@@ -11,7 +11,6 @@ import asyncio
 import datetime
 import re
 import time
-import unicodedata
 from types import SimpleNamespace
 
 from google.genai import types
@@ -20,17 +19,19 @@ from pydantic import BaseModel
 from . import gemini, product_image
 from .config import settings
 from .logging_utils import add_usage, log_event
-from .media import media_of, strip_brand
+from .media import media_of
 from .routine import ROLE
 from .schemas import (ASPECT_LABELS, Claim, Direction, Evidence, Product, ResearchStep, Review, Source, SourceRef, Unknown,
                       Usage, Volume)
+from .textkey import strip_brand, text_key
 
 MIN_FULL_INGREDIENTS = 8  # これより少ない全成分は、一部しか取れていないとみなす
 
 BRIEF = "検索は必要最小限にし、簡潔に答えてください。分からない項目は分からないと書き、推測で補わないでください。"
 
-CATEGORY_LABEL = {"cleanser": "洗顔料", "lotion": "化粧水", "serum": "美容液", "emulsion": "乳液", "cream": "クリーム",
-                  "sunscreen": "日焼け止め", "other": "スキンケア製品"}
+# 画面の呼び方（web/app.js の CATEGORY・web/index.html の選択肢）と同じにする。other だけは画面では「その他」
+CATEGORY_LABEL = {"cleanser": "洗顔料・クレンジング", "lotion": "化粧水", "serum": "美容液", "emulsion": "乳液",
+                  "cream": "クリーム", "sunscreen": "日焼け止め", "other": "スキンケア製品"}
 
 
 class GroundedResult(BaseModel):
@@ -147,10 +148,6 @@ async def _grounded_once(prompt: str, label: str) -> GroundedResult:
                           sources=sources, queries=queries, entry_point_html=entry)
 
 
-def _norm(s: str) -> str:
-    return re.sub(r"\s+", "", unicodedata.normalize("NFKC", s or ""))
-
-
 def _pick_sources(g: GroundedResult, idx: list[int]) -> list[Source]:
     ids = {f"S{i}" for i in idx}
     return [s for s in g.sources if s.source_id in ids]
@@ -262,12 +259,12 @@ def _keep_values_in_text(f: "_FactsOut", text_norm: str) -> "_FactsOut":
         update["price_jpy_tax_included"] = None
         update["unknown_fields"] = list(f.unknown_fields) + ["価格（検索本文で確認できず）"]
     if f.ingredients_full:
-        kept = [i for i in f.ingredients_full if _norm(i) and _norm(i) in text_norm]
+        kept = [i for i in f.ingredients_full if text_key(i) and text_key(i) in text_norm]
         if len(kept) < len(f.ingredients_full):
             update["ingredients_full"] = kept
             # 本文で確かめられない成分が混ざっていた場合、全成分を全部確認できたとは扱わない
             update["ingredients_complete"] = False
-    actives = [a for a in f.active_ingredients if _norm(a) and _norm(a) in text_norm]
+    actives = [a for a in f.active_ingredients if text_key(a) and text_key(a) in text_norm]
     if len(actives) < len(f.active_ingredients):
         update["active_ingredients"] = actives
     return f.model_copy(update=update) if update else f
@@ -279,12 +276,12 @@ def _facts_to_product(f: _FactsOut, g: GroundedResult, product_id: str, role: st
         f = f.model_copy(update={"ingredients_full": [], "ingredients_complete": False, "active_ingredients": [],
                                  "claims": [], "usage_timing": [],
                                  "price_jpy_tax_included": None, "unknown_fields": list(f.unknown_fields) + ["出典"]})
-    text_norm = _norm(g.text)
+    text_norm = text_key(g.text)
     # 検索で得た本文に実際に書かれている値だけを使う（Webページに混ざった指示や、構造化の取り違えで値が変わるのを防ぐ）
     f = _keep_values_in_text(f, text_norm)
     claims = []
     for i, c in enumerate(f.claims, 1):
-        if not c.text or _norm(c.text) not in text_norm:
+        if not c.text or text_key(c.text) not in text_norm:
             continue  # 検索本文に原文が無い表示は使わない
         src = _pick_sources(g, c.sources)
         if not src:
@@ -522,14 +519,14 @@ async def discover_other_step(conditions, direction: dict, owned: list, category
     cond = conditions.model_copy(update={"category": category})
     g = await grounded(discover_prompt(cond, [direction], owned, limit) + MUST_SEARCH, "other_step")
     stubs, step = await structure_discovery(cond, g, "別のアイテムの案：")
-    text_norm = _norm(g.text)
+    text_norm = text_key(g.text)
     kept = []
     for st in stubs:
         if not st.get("sources"):
             continue
         price = st.get("price_jpy_tax_included")
         st["price_jpy_tax_included"] = price if price is not None and _price_in_text(price, text_norm) else None
-        st["key_ingredients"] = [i for i in st.get("key_ingredients", []) if _norm(i) and _norm(i) in text_norm]
+        st["key_ingredients"] = [i for i in st.get("key_ingredients", []) if text_key(i) and text_key(i) in text_norm]
         kept.append(st)
     return kept, step, g.entry_point_html
 
