@@ -160,7 +160,7 @@ class Conditions(BaseModel):
     concern_label: str = "小じわ"  # 本人の言葉のまま
     concern_note: str | None = None  # 乾燥も気になる等の補足
     category: Category = "serum"
-    budget_jpy_max: int | None = Field(default=None, gt=0)
+    budget_jpy_max: int | None = Field(default=None, ge=1)  # gt=0 はGeminiのスキーマ変換が受け付けない（exclusiveMinimum）
     texture_preferences: list[TexturePreference] = []
     keep_note: str | None = None  # 「この化粧水は残したい」の原文
     avoid_ingredients: list[str] = []
