@@ -49,3 +49,11 @@ def test_sources_and_references_are_complete():
         if not e["source"].get("url", "").startswith("http"):
             problems.append(f"{e['evidence_id']}: 出典URLがない")
     assert not problems, "\n".join(problems[:20])
+
+
+def test_no_grounding_redirects_in_registered_data():
+    """Google検索連携の結果は規約で保存できない。登録データと写真の一覧に、検索連携の転送URLを入れない。"""
+    from app.catalog import grounding_urls
+    files = sorted(DATA.glob("*.json")) + [DATA.parent / "web" / "assets" / "products" / "manifest.json"]
+    found = {f.name: grounding_urls(json.loads(f.read_text(encoding="utf-8"))) for f in files}
+    assert not any(found.values()), {k: v[:3] for k, v in found.items() if v}

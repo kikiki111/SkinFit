@@ -17,9 +17,10 @@ from types import SimpleNamespace
 from google.genai import types
 from pydantic import BaseModel
 
-from . import gemini
+from . import gemini, product_image
 from .config import settings
 from .logging_utils import add_usage, log_event
+from .media import media_of, strip_brand
 from .schemas import (ASPECT_LABELS, Claim, Direction, Evidence, Product, ResearchStep, Review, Source, SourceRef, Unknown,
                       Usage, Volume)
 
@@ -266,14 +267,6 @@ def _keep_values_in_text(f: "_FactsOut", text_norm: str) -> "_FactsOut":
     return f.model_copy(update=update) if update else f
 
 
-def _strip_brand(brand: str, name: str) -> str:
-    """製品名の先頭にブランド名が重なっていれば外す（「ちふれ ちふれ 濃厚 美容液」を防ぐ）。"""
-    n = name.strip()
-    while brand and n.startswith(brand):
-        n = n[len(brand):].strip()
-    return n or name
-
-
 def _facts_to_product(f: _FactsOut, g: GroundedResult, product_id: str, role: str, fallback: dict, concern_id: str | None = None) -> Product:
     if not g.sources:
         # 検索の出典が無い内容（モデルの記憶だけの答え）は使わない
@@ -306,7 +299,7 @@ def _facts_to_product(f: _FactsOut, g: GroundedResult, product_id: str, role: st
         unknown.append(Unknown(field="全成分", reason=f"検索で確認できた全成分は一部（{len(f.ingredients_full)}成分）だけだった"))
     brand = f.brand or fallback.get("brand") or ""
     return Product(
-        product_id=product_id, role=role, brand=brand, name=_strip_brand(brand, f.name or fallback.get("name") or ""),
+        product_id=product_id, role=role, brand=brand, name=strip_brand(brand, f.name or fallback.get("name") or ""),
         regulatory_class="quasi_drug" if any(c.type == "quasi_drug_efficacy" for c in claims) else "cosmetic",
         category=_slug_ok_category(f.category, fallback.get("category") or "other"),
         volume=Volume(value=f.volume_value, unit=f.volume_unit or "mL") if f.volume_value else None,
@@ -386,14 +379,63 @@ async def research_concern(concern_id: str, concern_label: str) -> tuple[list[Di
     return directions, evidence, step
 
 
+def _find_image(brand: str | None, name: str) -> asyncio.Task:
+    """商品写真を探し始める。検索と並行で走らせ、最後に _settle_image で受け取る。"""
+    return asyncio.create_task(product_image.find(brand, name))
+
+
+async def _settle_image(task: asyncio.Task | None):
+    if task is None:
+        return None
+    try:
+        return await task
+    except Exception as e:  # noqa: BLE001  写真が無くても推薦は続ける
+        log_event("product_image", severity="WARNING", result="error", error=type(e).__name__)
+        return None
+
+
+def from_registered(reg: Product, product_id: str, role: str, searched_as: str) -> Product:
+    """登録データ（人が公式ページで確かめたもの）を、この推薦の製品として使う。IDと役割だけ替える。
+
+    出典IDの付け直しが製品の中身を書き換えるため、登録データそのものを変えないよう深いコピーにする。
+    """
+    return reg.model_copy(deep=True, update={"product_id": product_id, "role": role, "searched_as": searched_as or None})
+
+
+def _registered_step(step: str, target: str, p: Product, details: list[str], sources: list[Source]) -> ResearchStep:
+    return ResearchStep(step=step, target=target, status="ok", summary=f"登録済みのデータを使いました（確認日 {p.checked_at}）",
+                        details=details, queries=[], sources=_refs(sources))
+
+
+async def registered_owned(item: dict, product_id: str, reg: Product) -> tuple[Product, None, ResearchStep]:
+    """手持ちが登録商品に一致したとき、Google検索を省いて登録データを使う。"""
+    target = f"{item.get('brand') or ''} {item['name']}".strip()
+    image = None if media_of(reg) else _find_image(item.get("brand"), item["name"])
+    try:
+        p = _prefix_sources(from_registered(reg, product_id, "owned", target), product_id)
+        p.media = p.media or await _settle_image(image)
+    finally:
+        if image:
+            image.cancel()
+    n = len(p.ingredients_full or [])
+    log_event("research_result", step="owned", target=target, found_name=f"{p.brand} {p.name}", ingredients=n,
+              complete=p.ingredients_complete, registered=True)
+    return p, None, _registered_step("owned", target, p, [f"全成分 {n}成分（{p.brand} {p.name}）"], p.sources)
+
+
 async def research_owned(item: dict, product_id: str) -> tuple[Product, str | None]:
     label = CATEGORY_LABEL.get(item.get("category") or "", "スキンケア製品")
     prompt = (f"スキンケア製品「{item.get('brand') or ''} {item['name']}」（{label}）の全成分を、メーカー公式の表示どおり・順番どおりに答えてください。"
               "あわせて、製品の種類（化粧水など）と、朝・夜の使い方の指定があればそれも。" + BRIEF)
     target = f"{item.get('brand') or ''} {item['name']}".strip()
-    g = await grounded(prompt, f"owned:{product_id}")
-    f = await _structure(_FactsOut, g, "この製品の事実を構造化してください。")
-    p = _prefix_sources(_facts_to_product(f, g, product_id, "owned", item), product_id)
+    image = _find_image(item.get("brand"), item["name"])
+    try:
+        g = await grounded(prompt, f"owned:{product_id}")
+        f = await _structure(_FactsOut, g, "この製品の事実を構造化してください。")
+        p = _prefix_sources(_facts_to_product(f, g, product_id, "owned", item), product_id)
+        p.media = await _settle_image(image)
+    finally:
+        image.cancel()
     n = len(p.ingredients_full or [])
     if not n:
         summary, status = "全成分を検索で確認できませんでした", "failed"
@@ -487,32 +529,57 @@ class _OpinionsOut(BaseModel):
     opinions: list[_OpinionOut]
 
 
-async def research_candidate(stub: dict, product_id: str, concern_id: str = "fine_lines", concern_label: str = "小じわ"):
-    """候補1品を、「成分・表示・用法・価格」と「口コミの使用感」の2つの検索に分けて並行で調べる（1回の検索で聞く項目を絞ると速い）。"""
+async def research_candidate(stub: dict, product_id: str, concern_id: str = "fine_lines", concern_label: str = "小じわ",
+                             registered: Product | None = None):
+    """候補1品を、「成分・表示・用法・価格」と「口コミの使用感」の2つの検索に分けて並行で調べる（1回の検索で聞く項目を絞ると速い）。
+
+    登録商品に一致したとき（registered）は、成分・価格の検索を省いて登録データを使う。口コミはその場の検索で集めた
+    ほかの候補と数え方をそろえるため、これまでどおり検索する。商品写真は検索と並行で探す。
+    """
+    image = None if (registered and media_of(registered)) else _find_image(stub.get("brand"), stub["name"])
+    try:
+        return await _research_candidate(stub, product_id, concern_id, concern_label, registered, image)
+    finally:
+        if image:
+            image.cancel()
+
+
+async def _research_candidate(stub: dict, product_id: str, concern_id: str, concern_label: str,
+                              registered: Product | None, image: asyncio.Task | None):
     name = f"{stub.get('brand') or ''} {stub['name']}"
     facts_prompt = (f"スキンケア製品「{name}」について、メーカー公式の情報を答えてください。"
                     "全成分（表示どおり・順番どおり）、効能表示（表示どおり。効能評価試験済みか医薬部外品かも）、"
                     "朝・夜の使い方と使う順番、メーカーの使用感の説明、税込価格と容量。" + BRIEF)
     review_prompt = (f"スキンケア製品「{name}」の口コミで語られている使用感（ベタつき、なじみ、伸び、香り、保湿感、メイク前の使いやすさ、刺激感）を、"
                      "好意的な評価と気になる評価の両方について、どのサイトの口コミかが分かるように簡潔にまとめてください。" + BRIEF)
-    fg, rg = await asyncio.gather(grounded(facts_prompt, f"candidate_facts:{product_id}"),
-                                  grounded(review_prompt, f"candidate_reviews:{product_id}"), return_exceptions=True)
-    if isinstance(fg, BaseException):
-        raise fg
-    f_task = _structure(_FactsOut, fg, "この製品の事実を構造化してください。", concern_label)
+    if registered is None:
+        fg, rg = await asyncio.gather(grounded(facts_prompt, f"candidate_facts:{product_id}"),
+                                      grounded(review_prompt, f"candidate_reviews:{product_id}"), return_exceptions=True)
+        if isinstance(fg, BaseException):
+            raise fg
+    else:
+        fg = None
+        rg = (await asyncio.gather(grounded(review_prompt, f"candidate_reviews:{product_id}"), return_exceptions=True))[0]
     o_task = (_structure(_OpinionsOut, rg, "出典ごとの使用感の評価を構造化してください。\n" + OPINION_RULES)
               if not isinstance(rg, BaseException) else None)
-    if o_task:
-        facts, ops = await asyncio.gather(f_task, o_task, return_exceptions=True)
+    if fg is None:
+        ops = (await asyncio.gather(o_task, return_exceptions=True))[0] if o_task else rg
+        p = _prefix_sources(from_registered(registered, product_id, "candidate", name.strip()), f"{product_id}_F")
     else:
-        facts, ops = await f_task, rg
-    if isinstance(facts, BaseException):
-        raise facts
-    p = _facts_to_product(facts, fg, product_id, "candidate", stub, concern_id)
-    if p.price_jpy_tax_included is None and stub.get("price_jpy_tax_included"):
-        p.price_jpy_tax_included = stub["price_jpy_tax_included"]
-        p.price_note = "候補探索の検索で確認した参考価格"
-    p = _prefix_sources(p, f"{product_id}_F")
+        f_task = _structure(_FactsOut, fg, "この製品の事実を構造化してください。", concern_label)
+        if o_task:
+            facts, ops = await asyncio.gather(f_task, o_task, return_exceptions=True)
+        else:
+            facts, ops = await f_task, rg
+        if isinstance(facts, BaseException):
+            raise facts
+        p = _facts_to_product(facts, fg, product_id, "candidate", stub, concern_id)
+        if p.price_jpy_tax_included is None and stub.get("price_jpy_tax_included"):
+            p.price_jpy_tax_included = stub["price_jpy_tax_included"]
+            p.price_note = "候補探索の検索で確認した参考価格"
+        p = _prefix_sources(p, f"{product_id}_F")
+    p.media = p.media or await _settle_image(image)
+    fact_sources = list(p.sources)  # 口コミの出典を足す前の、成分・価格の出典
     reviews: list[Review] = []
     findings: dict[str, dict[str, str]] = {}
     if not isinstance(ops, BaseException) and not isinstance(rg, BaseException):
@@ -531,17 +598,21 @@ async def research_candidate(stub: dict, product_id: str, concern_id: str = "fin
             findings[rid] = {x.aspect: x.polarity for x in o.aspects if x.aspect in ASPECT_LABELS and x.polarity in ("positive", "negative", "mixed")}
     else:
         p.unknown.append(Unknown(field="口コミ", reason="口コミの検索に失敗した"))
-    entry = rg.entry_point_html if not isinstance(rg, BaseException) else fg.entry_point_html
+    entry = rg.entry_point_html if not isinstance(rg, BaseException) else (fg.entry_point_html if fg else None)
     n = len(p.ingredients_full or [])
     eff = [c.text for c in p.claims if c.type != "marketing"]
-    facts_step = _step("candidate_facts", name, fg,
-                       f"全成分 {n}成分" + ("" if p.ingredients_complete else "（一部）") + f"、効能表示 {len(eff)}件を確認しました",
-                       [f"効能表示：{t}" for t in eff] + [f"価格：{'税込' + format(p.price_jpy_tax_included, ',') + '円' if p.price_jpy_tax_included else '確認できず'}"],
-                       "ok" if n else "partial")
+    fact_details = [f"効能表示：{t}" for t in eff] + [f"価格：{'税込' + format(p.price_jpy_tax_included, ',') + '円' if p.price_jpy_tax_included else '確認できず'}"]
+    if fg is None:
+        facts_step = _registered_step("candidate_facts", name, p, [f"全成分 {n}成分", *fact_details], fact_sources)
+    else:
+        facts_step = _step("candidate_facts", name, fg,
+                           f"全成分 {n}成分" + ("" if p.ingredients_complete else "（一部）") + f"、効能表示 {len(eff)}件を確認しました",
+                           fact_details, "ok" if n else "partial")
     if isinstance(rg, BaseException):
         review_step = _step("candidate_reviews", name, None, "口コミの検索に失敗しました", [], "failed")
     else:
         review_step = _step("candidate_reviews", name, rg, f"使用感に触れた情報源を{len(reviews)}件確認しました",
                             [f"{r.source_title}：{r.summary}" for r in reviews[:6]], "ok" if reviews else "partial")
-    log_event("research_result", step="candidate", target=name, ingredients=n, claims=len(eff), opinions=len(reviews))
+    log_event("research_result", step="candidate", target=name, ingredients=n, claims=len(eff), opinions=len(reviews),
+              registered=fg is None)
     return p, reviews, findings, entry, [facts_step, review_step]

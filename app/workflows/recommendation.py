@@ -17,7 +17,7 @@ from google.adk import Workflow
 from google.adk.workflow import JoinNode
 
 from .. import assemble, normalize, research, reviews
-from ..catalog import Catalog, catalog_from_bundle, load, search_candidates
+from ..catalog import Catalog, catalog_from_bundle, find_registered, load, search_candidates
 from ..config import settings
 from ..logging_utils import log_event
 from ..schemas import Conditions, Product, RecommendationResult, RecommendRequest, ResearchStep
@@ -42,6 +42,20 @@ def _note(ctx, text: str) -> None:
     ctx.state["bundle"] = b
 
 
+def _research_owned(base: Catalog, item, product_id: str):
+    """登録商品に一致する手持ちはGoogle検索を省き、それ以外はその場で調べる。"""
+    reg = find_registered(base, item.brand, item.name)
+    if reg:
+        return research.registered_owned(item.model_dump(), product_id, reg)
+    return research.research_owned(item.model_dump(), product_id)
+
+
+def _research_candidate(base: Catalog, stub: dict, product_id: str, cond: Conditions):
+    """登録商品に一致する候補は、成分・価格の検索を省いて登録データを使う。"""
+    reg = find_registered(base, stub.get("brand"), stub["name"])
+    return research.research_candidate(stub, product_id, cond.concern, cond.concern_label, **({"registered": reg} if reg else {}))
+
+
 async def owned_research(ctx, node_input) -> dict:
     """写真から確定した手持ちの全成分を、Google検索で調べる（3品まで並行）。"""
     t = time.time()
@@ -53,7 +67,7 @@ async def owned_research(ctx, node_input) -> dict:
     notes: list[str] = []
     log: list[dict] = []
     items = req.owned_items
-    results = await asyncio.gather(*(research.research_owned(i.model_dump(), f"own_{n}") for n, i in enumerate(items, 1)),
+    results = await asyncio.gather(*(_research_owned(base, i, f"own_{n}") for n, i in enumerate(items, 1)),
                                    return_exceptions=True)
     owned_log: list[dict] = []
     for n, (item, r) in enumerate(zip(items, results), 1):
@@ -361,7 +375,7 @@ async def candidate_research(ctx, node_input: dict) -> dict:
     mode = node_input["mode"]
     if mode == "live":
         cond = _req(ctx).conditions
-        results = await asyncio.gather(*(research.research_candidate(s, f"cand_{n}", cond.concern, cond.concern_label)
+        results = await asyncio.gather(*(_research_candidate(base, s, f"cand_{n}", cond)
                                          for n, s in enumerate(node_input["stubs"], 1)), return_exceptions=True)
         cands, revs, findings = [], [], {}
         for s, r in zip(node_input["stubs"], results):
@@ -383,7 +397,9 @@ async def candidate_research(ctx, node_input: dict) -> dict:
             b.update(candidates=cands, reviews=revs, findings=findings)
     if mode != "live":
         # 登録済みの候補は小じわ向け。ほかの悩みでは代替に使わない
-        regs = [p for p in base.products.values() if p.role == "candidate"] if _req(ctx).conditions.concern == "fine_lines" else []
+        # 代替に使うのは、代替用の印（demo_role）が付いた商品だけ。高速化のために登録した商品は混ぜない
+        regs = ([p for p in base.products.values() if p.role == "candidate" and p.demo_role]
+                if _req(ctx).conditions.concern == "fine_lines" else [])
         if not regs:
             b.setdefault("notes", []).append("登録済みの代替候補は小じわ向けのため、この悩みでは使っていません")
         b.update(candidates=[p.model_dump() for p in regs], reviews=[r.model_dump() for r in base.reviews], findings=None)

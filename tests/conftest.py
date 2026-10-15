@@ -40,6 +40,20 @@ def _discover_agent_stub(index):
 
 
 @pytest.fixture(autouse=True)
+def no_real_product_images(monkeypatch):
+    """テストでは本物のYahoo!・楽天のAPIを呼ばない（.env にキーがあっても空にする）。写真探しは test_product_image.py で試す。"""
+    from app import product_image
+    keys = ("yahoo_client_id", "rakuten_app_id", "rakuten_access_key")
+    saved = {k: getattr(settings, k) for k in keys}
+    for k in keys:
+        object.__setattr__(settings, k, "")  # settings は凍結されたdataclassなので setattr できない
+    monkeypatch.setattr(product_image, "_throttles", {"yahoo": product_image._Throttle(0), "rakuten": product_image._Throttle(0)})
+    yield
+    for k, v in saved.items():
+        object.__setattr__(settings, k, v)
+
+
+@pytest.fixture(autouse=True)
 def no_real_discover_agents(monkeypatch):
     from app.workflows import agents
     monkeypatch.setattr(agents, "discover_agent", _discover_agent_stub)

@@ -361,3 +361,82 @@ def test_grounded_from_raw_restores_source_markers():
     g = research.grounded_from_raw(raw)
     assert g.annotated == "ベタつかない。[S1]香りが強い。[S2]"
     assert [s.url for s in g.sources] == ["https://a.example", "https://b.example"]
+
+
+def _registered_product(pid, role, name, category, ings):
+    from app.schemas import Source
+    src = Source(source_id="S1", url=f"https://maker.example/{pid}", title="maker.example", checked_at=TODAY)
+    return Product(product_id=pid, role=role, brand="テスト", name=name, category=category, ingredients_full=ings,
+                   ingredients_source_id="S1", sources=[src], checked_at=TODAY, data_version="2026-10-15.1")
+
+
+def test_registered_owned_item_skips_search(live):
+    from app import catalog
+    reg = _registered_product("reg_lotion", "owned", "化粧水", "lotion",
+                              ["水", "グリセリン", "BG", "ナイアシンアミド", "ペンチレングリコール", "カルボマー", "フェノキシエタノール", "メチルパラベン"])
+    live.setitem(catalog.load().products, reg.product_id, reg)
+    searched = []
+
+    async def counting_owned(item, pid):
+        searched.append(item["name"])
+        return await fake_owned(item, pid)
+    live.setattr(research, "research_owned", counting_owned)
+    _, res = _run(_live_request())
+    assert searched == ["乳液"]  # 登録済みの化粧水は検索しない
+    lotion = next(p for p in res.owned_analysis.products if p.name == "化粧水")
+    assert lotion.ingredients_full == reg.ingredients_full
+    owned_steps = [s for s in res.research_log if s.step == "owned"]
+    assert any("登録済みのデータ" in s.summary for s in owned_steps)
+
+
+def test_registered_candidate_is_passed_to_research(live):
+    from app import catalog
+    reg = _registered_product("reg_light", "candidate", "軽め美容液", "serum", ["水", "ナイアシンアミド", "BG"])
+    live.setitem(catalog.load().products, reg.product_id, reg)
+    received = {}
+
+    async def fake_candidate_reg(stub, pid, concern_id="fine_lines", concern_label="小じわ", registered=None):
+        received[stub["name"]] = registered
+        return await fake_candidate(stub, pid, concern_id, concern_label)
+    live.setattr(research, "research_candidate", fake_candidate_reg)
+    _run(_live_request())
+    assert received["軽め美容液"] is reg and received["重め美容液"] is None
+
+
+def test_fallback_uses_only_demo_candidates(live):
+    from app import catalog
+    reg = _registered_product("reg_extra", "candidate", "高速化用に登録した美容液", "serum", ["水", "BG"])
+    live.setitem(catalog.load().products, reg.product_id, reg)
+
+    async def broken(*a, **k):
+        raise RuntimeError("search down")
+    live.setattr(research, "discover_candidates", broken)
+    live.setattr(research, "structure_discovery", broken)
+
+    async def fake_extract(name, uniq):
+        return {r.review_id: {"stickiness": "positive"} for r in uniq}
+    live.setattr(reviews, "extract_findings", fake_extract)
+    _, res = _run(_live_request())
+    assert res.research_mode == "catalog_fallback"
+    assert "reg_extra" not in {c.product_id for c in res.candidates}
+
+
+def test_photos_from_research_reach_cards_and_routines(live):
+    from app.schemas import ProductMedia
+
+    async def with_photo(stub, pid, concern_id="fine_lines", concern_label="小じわ"):
+        p, revs, finds, entry, steps = await fake_candidate(stub, pid, concern_id, concern_label)
+        p.media = ProductMedia(src=f"https://item-shopping.c.yimg.jp/i/l/{pid}", source_url="https://store.shopping.yahoo.co.jp/x.html",
+                               credit="Yahoo!ショッピング", provider="yahoo")
+        return p, revs, finds, entry, steps
+    live.setattr(research, "research_candidate", with_photo)
+    _, res = _run(_live_request())
+    top = res.candidates[0]
+    assert top.media.provider == "yahoo" and top.media.src.endswith(top.product_id)
+    plan = next(r for r in res.routines if r.product_id == top.product_id)
+    new_steps = [s for s in plan.plan.morning + plan.plan.night + plan.unplaced if s.is_new]
+    assert new_steps and all(s.media and s.media.provider == "yahoo" for s in new_steps)
+    # 並べ替えでも、bundle に入った写真がそのまま使われる（検索し直さない）
+    live.setattr(research, "research_candidate", None)
+    rr = orchestrator.run_rerank(RerankRequest(**_live_request(priorities=LIGHT_PRIORITIES).model_dump(), analysis=res.analysis))
+    assert all(c.media and c.media.provider == "yahoo" for c in rr.candidates)

@@ -172,6 +172,110 @@ test("source links reject scripts and local executable schemes", () => {
   ctx.input = "https://example.com/product";
   assert.equal(vm.runInContext("safeURL(input)", ctx), ctx.input);
 });
+test("product photos accept saved assets and https images only", () => {
+  const ctx = runtime();
+  const card = (media) => {
+    ctx.input = { brand: "B", name: "Serum", category: "serum", media };
+    return vm.runInContext("mediaMarkup(input, 1)", ctx);
+  };
+  const yahoo = card({
+    src: "https://item-shopping.c.yimg.jp/i/l/x",
+    source_url: "https://store.shopping.yahoo.co.jp/x.html",
+    credit: "Yahoo!ショッピング",
+    provider: "yahoo",
+  });
+  assert.match(
+    yahoo,
+    /<img src="https:\/\/item-shopping\.c\.yimg\.jp\/i\/l\/x"/,
+  );
+  assert.match(yahoo, /referrerpolicy="no-referrer"/);
+  assert.match(
+    yahoo,
+    /href="https:\/\/store\.shopping\.yahoo\.co\.jp\/x\.html"/,
+  );
+  assert.match(yahoo, /Yahoo!ショッピングで見る/);
+  assert(!yahoo.includes("is-small"));
+  const rakuten = card({
+    src: "https://thumbnail.image.rakuten.co.jp/x.jpg?_ex=128x128",
+    source_url: "https://item.rakuten.co.jp/shop/x/",
+    credit: "楽天市場",
+    provider: "rakuten",
+  });
+  assert.match(rakuten, /class="is-small"/);
+  assert.match(rakuten, /楽天市場で見る/);
+  // 楽天の画像の枠には楽天へのリンクだけを置く
+  assert.deepEqual(
+    [...rakuten.matchAll(/href="([^"]+)"/g)].map((m) => m[1]),
+    ["https://item.rakuten.co.jp/shop/x/"],
+  );
+  const registered = card({
+    src: "/assets/products/chifure-rich.png",
+    source_url: "https://www.chifure.co.jp/products/essence/2634",
+    credit: "ちふれ 公式サイト",
+  });
+  assert.match(registered, /src="\/assets\/products\/chifure-rich\.png"/);
+  assert.match(registered, /ちふれ 公式サイト/);
+  for (const src of [
+    "http://example.com/x.jpg",
+    "javascript:alert(1)",
+    "data:image/png;base64,AA",
+    "/assets/products/../secret.png",
+  ]) {
+    const html = card({ src, source_url: "https://example.com", credit: "c" });
+    assert(!html.includes("<img"), src);
+    assert.match(html, /商品写真は未確認です/);
+  }
+});
+test("routine thumbnails use the same photo rules", () => {
+  const ctx = runtime();
+  ctx.input = [
+    {
+      brand: "B",
+      name: "Serum",
+      category: "serum",
+      media: {
+        src: "https://item-shopping.c.yimg.jp/i/l/x",
+        provider: "yahoo",
+      },
+    },
+    {
+      brand: "B",
+      name: "Lotion",
+      category: "lotion",
+      media: { src: "javascript:alert(1)" },
+    },
+  ];
+  const html = vm.runInContext("routineSteps(input)", ctx);
+  assert.equal((html.match(/<img /g) || []).length, 1);
+  assert.match(html, /referrerpolicy="no-referrer"/);
+});
+test("only registered photos are labelled as the official product page", () => {
+  const ctx = runtime();
+  const linkFor = (media) => {
+    ctx.input = {
+      media,
+      price_source: { url: "https://maker.example/price", title: "maker" },
+    };
+    return vm.runInContext("productPageLink(input)", ctx);
+  };
+  assert.match(
+    linkFor({
+      src: "/assets/products/a.png",
+      source_url: "https://maker.example/p",
+      credit: "c",
+    }),
+    /公式の商品ページ/,
+  );
+  const shop = linkFor({
+    src: "https://item-shopping.c.yimg.jp/i/l/x",
+    source_url: "https://store.shopping.yahoo.co.jp/x.html",
+    credit: "Yahoo!ショッピング",
+    provider: "yahoo",
+  });
+  assert.match(shop, /商品の情報を見る/);
+  assert.match(shop, /maker\.example\/price/);
+  assert.match(linkFor(null), /商品の情報を見る/);
+});
 test("stickiness is not silently prioritized when the user did not request it", () => {
   const ctx = runtime();
   assert.equal(

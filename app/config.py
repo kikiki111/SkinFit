@@ -55,6 +55,11 @@ class Settings:
     rate_window_sec: int = int(os.environ.get("SKINFIT_RATE_WINDOW_SEC", "600"))
     max_concurrent_recommends: int = int(os.environ.get("SKINFIT_MAX_CONCURRENT_RECOMMENDS", "3"))
     daily_recommend_limit: int = int(os.environ.get("SKINFIT_DAILY_RECOMMEND_LIMIT", "150"))
+    # 商品写真を探す公式API（Yahoo!ショッピング・楽天市場）。空なら写真探しをしない
+    yahoo_client_id: str = os.environ.get("SKINFIT_YAHOO_CLIENT_ID", "")
+    rakuten_app_id: str = os.environ.get("SKINFIT_RAKUTEN_APP_ID", "")
+    rakuten_access_key: str = os.environ.get("SKINFIT_RAKUTEN_ACCESS_KEY", "")
+    image_lookup_timeout_sec: float = float(os.environ.get("SKINFIT_IMAGE_LOOKUP_TIMEOUT_SEC", "8"))
     max_upload_bytes: int = 7 * 1024 * 1024  # Gemini 4 Argonのインライン1ファイル上限
     data_dir: Path = ROOT / "data"
     web_dir: Path = ROOT / "web"

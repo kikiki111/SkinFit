@@ -5,5 +5,7 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 data/drafts/*.tmp
+# 人が公式ページと見比べる前の下書き（scripts/draft_product.py の出力）
+data/drafts/pending/
 docs/screenshots/
 node_modules/

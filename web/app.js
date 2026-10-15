@@ -943,14 +943,34 @@ $("btn-preview").addEventListener("click", () =>
     showSection("candidates");
   }),
 );
+// 商品写真は、保存済みの登録画像か https の画像だけを表示する（Yahoo!・楽天の公式APIの画像、登録データの公式画像URL）
+function mediaSrc(media) {
+  const src = media?.src;
+  if (!src) return null;
+  if (/^\/assets\/products\/[a-z0-9-]+\.(png|jpg|webp)$/.test(src)) return src;
+  try {
+    const url = new URL(src);
+    return url.protocol === "https:" ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+// 楽天の規約で、楽天の画像を出す枠には楽天へのリンクだけを置く。リンク先は各社の商品ページ
+const MEDIA_LINK_LABEL = {
+  yahoo: "Yahoo!ショッピングで見る",
+  rakuten: "楽天市場で見る",
+};
 function mediaMarkup(product, rank) {
   const media = product.media;
-  const src =
-    media?.src &&
-    /^\/assets\/products\/[a-z0-9-]+\.(png|jpg|webp)$/.test(media.src)
-      ? media.src
-      : null;
-  return `<div class="product-visual"><div class="product-kicker"><span>${String(rank).padStart(2, "0")}</span>${rank === 1 ? "OUR PICK" : "ANOTHER OPTION"}</div>${src ? `<img src="${esc(src)}" alt="${esc(product.brand)} ${esc(product.name)}" loading="lazy" width="400" height="400"><div class="product-credit">${link(media, media.credit)}</div>` : `<div class="product-placeholder"><span class="placeholder-mark" aria-hidden="true">s.</span><span>${esc(CATEGORY[product.category] || "スキンケア")}</span><p>商品写真は未確認です</p></div>`}</div>`;
+  const src = mediaSrc(media);
+  const small = media?.provider === "rakuten" ? ' class="is-small"' : ""; // 楽天の画像は128pxなので引き伸ばさない
+  return `<div class="product-visual"><div class="product-kicker"><span>${String(rank).padStart(2, "0")}</span>${rank === 1 ? "OUR PICK" : "ANOTHER OPTION"}</div>${src ? `<img src="${esc(src)}"${small} alt="${esc(product.brand)} ${esc(product.name)}" loading="lazy" referrerpolicy="no-referrer" width="400" height="400"><div class="product-credit">${link(media, MEDIA_LINK_LABEL[media.provider] || media.credit)}</div>` : `<div class="product-placeholder"><span class="placeholder-mark" aria-hidden="true">s.</span><span>${esc(CATEGORY[product.category] || "スキンケア")}</span><p>商品写真は未確認です</p></div>`}</div>`;
+}
+// 「公式の商品ページ」と書くのは、人が公式ページで確かめた登録画像のときだけ。ショップの画像なら価格の出典へ
+function productPageLink(c) {
+  return c.media && (c.media.provider || "registered") === "registered"
+    ? link(c.media, "公式の商品ページ")
+    : link(c.price_source, "商品の情報を見る");
 }
 function priceMarkup(c) {
   return c.price_jpy != null
@@ -1033,19 +1053,18 @@ function productCard(c, index, result) {
           c.review_scope,
         )
       : ""
-  }${c.explanation?.tradeoffs?.length ? `<p class="note">留意したいこと：${esc(c.explanation.tradeoffs[0])}</p>` : ""}<button class="button ${index === 0 ? "primary" : "secondary"} routine-button">${result.is_preview ? "使い方の案を見る" : "手持ちと組んでみる"}<span aria-hidden="true">↓</span></button>${c.media ? link(c.media, "公式の商品ページ") : link(c.price_source, "商品の情報を見る")}</div>${detailMarkup(c)}`;
+  }${c.explanation?.tradeoffs?.length ? `<p class="note">留意したいこと：${esc(c.explanation.tradeoffs[0])}</p>` : ""}<button class="button ${index === 0 ? "primary" : "secondary"} routine-button">${result.is_preview ? "使い方の案を見る" : "手持ちと組んでみる"}<span aria-hidden="true">↓</span></button>${productPageLink(c)}</div>${detailMarkup(c)}`;
   card.querySelector(".routine-button").addEventListener("click", () => {
     state.currentRoutineProductId = c.product_id;
     state.routineView = "proposed";
     renderRoutines();
     showSection("routines");
   });
+  // 外部の画像が読めないときは、写真なしと同じ表示に戻す
   card.querySelector(".product-visual img")?.addEventListener("error", (e) => {
-    e.target.replaceWith(
-      Object.assign(document.createElement("p"), {
-        className: "note",
-        textContent: "商品写真を読み込めませんでした。",
-      }),
+    e.target.closest(".product-visual").outerHTML = mediaMarkup(
+      { ...c, media: null },
+      index + 1,
     );
   });
   return card;
@@ -1268,7 +1287,7 @@ function renderSuggestions(suggestions) {
 }
 function routineSteps(steps) {
   return steps?.length
-    ? `<ol class="routine-steps">${steps.map((s, i) => `<li class="routine-step ${s.is_new ? "new" : ""}"><span class="routine-step-number">${String(i + 1).padStart(2, "0")}</span>${s.media?.src && /^\/assets\/products\/[a-z0-9-]+\.(png|jpg|webp)$/.test(s.media.src) ? `<img src="${esc(s.media.src)}" alt="" width="45" height="54">` : ""}<div><small>${esc(CATEGORY[s.category])} / ${esc(s.brand)}</small><strong>${esc(s.name)}</strong></div>${s.is_new ? '<span class="new-label">＋ NEW</span>' : ""}</li>`).join("")}</ol>`
+    ? `<ol class="routine-steps">${steps.map((s, i) => `<li class="routine-step ${s.is_new ? "new" : ""}"><span class="routine-step-number">${String(i + 1).padStart(2, "0")}</span>${mediaSrc(s.media) ? `<img src="${esc(mediaSrc(s.media))}" alt="" referrerpolicy="no-referrer" width="45" height="54">` : ""}<div><small>${esc(CATEGORY[s.category])} / ${esc(s.brand)}</small><strong>${esc(s.name)}</strong></div>${s.is_new ? '<span class="new-label">＋ NEW</span>' : ""}</li>`).join("")}</ol>`
     : '<p class="empty-shelf">配置できるアイテムはありません。</p>';
 }
 function renderRoutines() {
@@ -1316,6 +1335,9 @@ function renderRoutines() {
       renderRoutines();
     }),
   );
+  container
+    .querySelectorAll(".routine-step img")
+    .forEach((img) => img.addEventListener("error", () => img.remove()));
 }
 $("btn-adopt").addEventListener("click", () => {
   state.selectedProductId = state.currentRoutineProductId;

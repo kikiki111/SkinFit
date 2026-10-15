@@ -841,6 +841,13 @@ summary::-webkit-details-marker {
   object-fit: contain;
   mix-blend-mode: multiply;
 }
+/* 楽天の画像は128pxなので、引き伸ばさずに中央に置く */
+.product-visual img.is-small,
+.alternative .product-visual img.is-small {
+  width: auto;
+  height: auto;
+  max-width: 160px;
+}
 .product-credit {
   font-size: 9px;
   color: var(--muted);
@@ -1306,6 +1313,13 @@ summary::-webkit-details-marker {
 .site-footer .micro {
   font-size: 8px;
   letter-spacing: 0.1em;
+}
+.api-credits {
+  padding-bottom: 30px;
+  font-size: 12px;
+}
+.api-credits a {
+  color: revert; /* 提供元のクレジットはリンクの色も変えない（各社の表示規定） */
 }
 #search-suggestions {
   margin-top: 28px;

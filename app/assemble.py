@@ -6,7 +6,7 @@ Geminiから受け取るのは、調査の方向性（direction_id）、口コ�
 
 from . import normalize, reviews, routine
 from .catalog import Catalog, search_candidates, source_ref
-from .media import media_for
+from .media import media_of
 from .ranking import RankInput, rank
 from .schemas import (CandidateView, ClaimView, ConcernRelevance, DirectionView, EvidenceView, Explanation,
                       RecommendationResult, RecommendRequest, UsageView)
@@ -92,7 +92,7 @@ def build(
         unknown = [f"{field_labels.get(u.field, u.field)}：{u.reason}" for u in p.unknown]
         views[pid] = CandidateView(
             product_id=pid, brand=p.brand, name=p.name, category=p.category, is_dummy=p.is_dummy,
-            media=media_for(p.brand, p.name),
+            media=media_of(p),
             regulatory_class=p.regulatory_class, price_jpy=p.price_jpy_tax_included, price_note=p.price_note,
             volume_text=f"{p.volume.value:g}{p.volume.unit}" if p.volume else None, price_checked_at=p.checked_at,
             price_source=cat.source(p, p.price_source_id), concern_relevance=info["concern"], texture=texture,

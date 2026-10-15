@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from .config import settings
+from .media import product_key
 from .schemas import AliasEntry, Conditions, Direction, Evidence, Product, Review, Source, SourceRef
 
 
@@ -107,6 +108,37 @@ def catalog_from_bundle(bundle: dict) -> Catalog:
         [Review.model_validate(r) for r in bundle.get("reviews") or []],
         bundle.get("mode") or "live", bundle.get("researched_at"),
     )
+
+
+GROUNDING_REDIRECT_HOST = "vertexaisearch.cloud.google.com"
+
+
+def grounding_urls(obj) -> list[str]:
+    """データに紛れ込んだGoogle検索連携の転送URLを探す。
+
+    検索連携の結果は規約で保存・データベース化できないため、登録データ（data/*.json）には入れない。
+    """
+    if isinstance(obj, str):
+        return [obj] if GROUNDING_REDIRECT_HOST in obj else []
+    if isinstance(obj, dict):
+        return [u for v in obj.values() for u in grounding_urls(v)]
+    if isinstance(obj, list):
+        return [u for v in obj for u in grounding_urls(v)]
+    return []
+
+
+def find_registered(cat: Catalog, brand: str | None, name: str) -> Product | None:
+    """品名が登録商品（人が公式ページで確かめたデータ）と一致すれば返す。製品名か別の書き方（name_aliases）で照合する。
+
+    一致した商品は、その場のGoogle検索を省いて登録データを使える。ダミーデータは実在の商品の代わりにしない。
+    """
+    key = product_key(brand, name)
+    for p in cat.products.values():
+        if p.is_dummy:
+            continue
+        if key in {product_key(p.brand, n) for n in [p.name, *p.name_aliases]}:
+            return p
+    return None
 
 
 def source_ref(source: Source) -> SourceRef:

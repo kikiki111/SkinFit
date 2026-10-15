@@ -5,8 +5,13 @@
 - 口コミ: drafts/reviews_*.json（各ファイルは口コミの配列）
 - 成分資料: drafts/evidence.json、drafts/ingredient_aliases.json
 下書きが無い種類は、今の data/ のまま残す。型に合わない下書きがあれば、取り込まずに止まる。
+Google検索連携の転送URL（vertexaisearch.cloud.google.com）を含む下書きも止める。検索連携の結果は規約で保存できない。
+下書きに無い製品・資料・別名が data/ から消える場合も止める（古い下書きで本番を上書きしないため）。
+消すつもりのときだけ --allow-removal を付ける。
+公式ページから製品の下書きを作るときは scripts/draft_product.py を使う。
 """
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -14,6 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from app.catalog import grounding_urls  # noqa: E402
 from app.schemas import AliasEntry, Direction, Evidence, Product, Review  # noqa: E402
 
 DATA = ROOT / "data"
@@ -29,7 +35,15 @@ def _write(name: str, obj) -> None:
     (DATA / name).write_text(json.dumps(obj, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def main() -> int:
+def _removed(current: list[dict], merged: list[dict], key: str) -> list[str]:
+    kept = {x[key] for x in merged}
+    return [x[key] for x in current if x[key] not in kept]
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="data/drafts/ の下書きを検査して data/*.json へ取り込む")
+    parser.add_argument("--allow-removal", action="store_true", help="下書きに無い既存の製品・資料・別名を消してよい")
+    args = parser.parse_args(argv)
     errors: list[str] = []
     products: list[dict] = []
     for name in ("candidates.json", "owned.json"):
@@ -66,6 +80,13 @@ def main() -> int:
         except Exception as e:  # noqa: BLE001
             errors.append(f"ingredient_aliases.json: {e}")
 
+    for label, items in (("製品", products), ("口コミ", reviews), ("成分資料", [evidence] if evidence else []),
+                         ("別名辞書", [aliases] if aliases else [])):
+        for item in items:
+            if grounding_urls(item):
+                name = item.get("product_id") or item.get("review_id") or label
+                errors.append(f"{label} {name}: Google検索連携の転送URLが含まれています（検索連携の結果は登録データに写さない）")
+
     ids = [p["product_id"] for p in products]
     if len(ids) != len(set(ids)):
         errors.append("製品IDが重複しています")
@@ -81,6 +102,15 @@ def main() -> int:
     current = _read(DATA / "products.json")["products"]
     roles = {p["role"] for p in products}
     merged = [p for p in current if p["role"] not in roles] + products
+    removed = _removed(current, merged, "product_id")
+    if evidence:
+        removed += _removed(_read(DATA / "evidence.json")["evidence"], evidence["evidence"], "evidence_id")
+    if aliases:
+        removed += _removed(_read(DATA / "ingredient_aliases.json")["entries"], aliases["entries"], "canonical")
+    if removed and not args.allow_removal:
+        print("取り込みを中止しました。下書きに無いため、次のデータが data/ から消えます（下書きを最新にするか、"
+              "消すつもりなら --allow-removal を付けてください）:\n- " + "\n- ".join(removed[:30]))
+        return 1
     merged_ids = {p["product_id"] for p in merged}
     # 口コミは、残った製品のものだけを残し、下書きを足す
     draft_ids = {r["review_id"] for r in reviews}

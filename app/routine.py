@@ -1,6 +1,6 @@
 """資料で確認できた時間帯だけに配置する。併用の安全性を判定する機能ではない。"""
 from .catalog import Catalog
-from .media import media_for
+from .media import media_of
 from .schemas import Product, RoutineDiff, RoutinePlan, RoutineSlotPlan, RoutineStep
 
 ORDER = {"cleanser": 0, "lotion": 1, "serum": 2, "emulsion": 3, "cream": 4, "sunscreen": 5, "other": 6}
@@ -14,7 +14,7 @@ def _slots(p: Product) -> tuple[list[str], str | None]:
 
 
 def _step(p: Product, is_new: bool = False) -> RoutineStep:
-    return RoutineStep(product_id=p.product_id, brand=p.brand, name=p.name, category=p.category, is_new=is_new, media=media_for(p.brand, p.name))
+    return RoutineStep(product_id=p.product_id, brand=p.brand, name=p.name, category=p.category, is_new=is_new, media=media_of(p))
 
 
 def _plan(products: list[Product], new_id: str | None):

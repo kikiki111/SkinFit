@@ -21,6 +21,13 @@ ACCOUNT="$(gcloud config get-value account 2>/dev/null || true)"
 if [ -n "$ACCOUNT" ] && git grep -nIF "$ACCOUNT" -- . >/dev/null 2>&1; then
   echo "個人のアカウント名がリポジトリに入っています:"; git grep -nIF "$ACCOUNT" -- .; exit 1
 fi
+# 商品写真のAPIキー（Yahoo!・楽天）は形式が決まっていないため、.env に書いた値そのものを探す（値は表示しない）
+for KEY in SKINFIT_YAHOO_CLIENT_ID SKINFIT_RAKUTEN_APP_ID SKINFIT_RAKUTEN_ACCESS_KEY; do
+  VALUE="$(sed -n "s/^$KEY=//p" .env 2>/dev/null | head -n 1)"
+  if [ -n "$VALUE" ] && git grep -qIF "$VALUE" -- . 2>/dev/null; then
+    echo "$KEY の値がリポジトリに入っています。外してください"; exit 1
+  fi
+done
 echo "秘密情報：見つかりませんでした"
 
 echo "== 4. 画面のJavaScriptの構文"
