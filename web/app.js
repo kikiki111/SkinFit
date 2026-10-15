@@ -816,8 +816,11 @@ const progressStages = [
 const newProgress = () => ({
   reached: 0,
   running: progressStages.map(() => new Set()),
+  html: "",
 });
 let progress = newProgress();
+// 印は画面だけの飾り。読み上げでは状態を言葉で伝える
+const PROGRESS_STATE = { running: "実行中", done: "完了", "": "未着手" };
 function renderProgress(event) {
   const index = progressStages.findIndex((s) => s.key === event.stage);
   if (index >= 0) {
@@ -825,13 +828,17 @@ function renderProgress(event) {
     if (event.status === "running") progress.running[index].add(event.node);
     else progress.running[index].delete(event.node);
   }
-  $("progress-list").innerHTML = progressStages
+  const html = progressStages
     .map((s, i) => {
       const running = progress.running[i].size > 0 || i === progress.reached;
       const cls = running ? "running" : i < progress.reached ? "done" : "";
-      return `<li class="progress-item ${cls}">${esc(s.label)}</li>`;
+      return `<li class="progress-item ${cls}">${esc(s.label)}<span class="visually-hidden">（${PROGRESS_STATE[cls]}）</span></li>`;
     })
     .join("");
+  // 表示が変わらないイベントでは書き換えない（読み上げが同じ一覧を繰り返さないように）
+  if (html === progress.html) return;
+  progress.html = html;
+  $("progress-list").innerHTML = html;
 }
 $("btn-start-recommend").addEventListener("click", async () => {
   if (state.busy) {

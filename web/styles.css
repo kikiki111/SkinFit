@@ -764,6 +764,7 @@ summary::-webkit-details-marker {
   padding: 0;
   margin: 24px 0;
 }
+/* 未着手は薄く、実行中は濃い色、完了は本文の色。状態は隠しテキストで読み上げ、印は読み上げない */
 .progress-item {
   font-size: 12px;
   padding: 10px 0;
@@ -771,22 +772,61 @@ summary::-webkit-details-marker {
   align-items: center;
   gap: 12px;
   border-bottom: 1px solid var(--line);
+  color: var(--muted);
+}
+.progress-item.done {
+  color: var(--ink);
+}
+.progress-item.running {
+  color: var(--accent);
+  font-weight: 600;
 }
 .progress-item::before {
   content: "○";
+  content: "○" / "";
   color: #b99ca4;
+  width: 1em;
+  flex-shrink: 0;
+  text-align: center;
 }
 .progress-item.done::before {
   content: "✓";
+  content: "✓" / "";
   color: var(--accent);
 }
+/* 実行中は文字の印ではなく、枠線で描いた輪を回す（小さい「◌」は淡い丸に見え、未着手と区別しにくい） */
 .progress-item.running::before {
-  content: "◌";
-  color: var(--accent);
+  content: "";
+  box-sizing: border-box;
+  width: 0.9em;
+  height: 0.9em;
+  margin: 0 0.05em;
+  border: 2px solid var(--accent);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: orbit 0.9s linear infinite;
 }
 .progress-item.failed::before {
   content: "!";
+  content: "!" / "";
   color: var(--clay);
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .orbit,
+  .progress-item.running::before {
+    animation: none;
+  }
 }
 .result-heading {
   display: flex;

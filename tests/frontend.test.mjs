@@ -183,6 +183,23 @@ test("progress follows the server's stages, and parallel stages run together", (
   send({ node: "verify", stage: "finish", status: "done" });
   assert.deepEqual(classes(), ["done", "done", "done", "running"]);
 });
+test("progress tells screen readers each state and skips unchanged redraws", () => {
+  const ctx = runtime();
+  const list = ctx.document.getElementById("progress-list");
+  const send = (event) =>
+    vm.runInContext(`renderProgress(${JSON.stringify(event)})`, ctx);
+  vm.runInContext("progress = newProgress(); renderProgress({})", ctx);
+  send({ node: "owned_research", stage: "owned", status: "running" });
+  send({ node: "prepare", stage: "discover", status: "running" });
+  assert.equal(list.innerHTML.match(/（実行中）/g).length, 2);
+  assert.equal(list.innerHTML.match(/（未着手）/g).length, 2);
+  // An event that changes nothing on screen must not rewrite the live region.
+  list.innerHTML = "unchanged";
+  send({ node: "dir_1", stage: "discover", status: "done" });
+  assert.equal(list.innerHTML, "unchanged");
+  send({ node: "owned_research", stage: "owned", status: "done" });
+  assert.match(list.innerHTML, /（完了）/);
+});
 test("search data is escaped, including attribute quote delimiters", () => {
   const ctx = runtime();
   ctx.input = '<img src=x onerror="alert(1)">\'';
