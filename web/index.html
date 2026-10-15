@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#fffaf7" />
+    <meta
+      name="description"
+      content="肌の悩みも、好きな使い心地も、今のスキンケアも。あなたの日常になじむ次の1本を、根拠と一緒に選ぶSkinFit。"
+    />
+    <title>SkinFit — 肌にも、暮らしにも。しっくりくる1本を。</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b34660'/%3E%3Ctext x='20' y='46' font-size='45' font-family='Georgia' fill='%23fffaf7'%3Es%3C/text%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">本文へ</a>
+    <header class="site-header wrap">
+      <a class="wordmark" href="/" aria-label="SkinFit ホーム"
+        >SkinFit<span class="brand-dot">.</span></a
+      >
+      <span class="header-caption">A LITTLE MORE YOU.</span>
+      <a class="header-link" href="#about"
+        >SkinFitについて <span aria-hidden="true">↗</span></a
+      >
+    </header>
+    <div id="service-banner" class="service-banner hidden" role="status"></div>
+    <main id="main" class="wrap">
+      <div
+        id="notice"
+        class="notice hidden"
+        role="status"
+        aria-live="polite"
+      ></div>
+      <div id="welcome" class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">
+            <span class="small-line"></span> YOUR SKIN, YOUR EVERYDAY
+          </p>
+          <h1>肌にも、暮らしにも。<br />しっくりくる<br /><em>1本を。</em></h1>
+          <p class="hero-description">
+            気になる肌のこと。好きな使い心地。<br />いま使っているものも大切にしながら、<br />あなたの次のスキンケアを、一緒に選びます。
+          </p>
+          <a
+            id="hero-start"
+            class="button primary hero-cta"
+            href="#consultation"
+            >わたしに合う1本を探す <span aria-hidden="true">↓</span></a
+          >
+          <button id="btn-preview" class="text-button preview-link">
+            まずは、比較サンプルを見てみる <span aria-hidden="true">↓</span>
+          </button>
+          <p class="micro">
+            登録不要 <span>／</span> 悩み・予算・手持ちから選ぶ
+          </p>
+        </div>
+        <figure class="hero-art">
+          <div class="art-topline">
+            <span>THE NEXT ONE</span><span>No. 01</span>
+          </div>
+          <div class="art-circle" aria-hidden="true"></div>
+          <div class="product-stage">
+            <div class="display-product display-left">
+              <img
+                src="/assets/products/chifure-moisture.webp"
+                alt="ちふれ 集中 保湿美容液"
+                width="526"
+                height="704"
+              /><span>MOISTURE</span>
+            </div>
+            <div class="display-product display-main">
+              <img
+                src="/assets/products/chifure-rich.png"
+                alt="ちふれ 濃厚 美容液"
+                width="750"
+                height="750"
+              /><span>YOUR NEXT FAVORITE</span>
+            </div>
+          </div>
+          <div class="art-bottomline">
+            <p>いつもの棚に、<br />小さな新しい選択を。</p>
+            <span class="art-seal" aria-hidden="true"
+              >Skin<br /><i>Fit.</i></span
+            >
+          </div>
+          <figcaption>
+            掲載商品はイメージです。<a
+              href="https://www.chifure.co.jp/products/essence/2634"
+              target="_blank"
+              rel="noopener noreferrer"
+              >写真：ちふれ公式サイト ↗</a
+            >
+          </figcaption>
+        </figure>
+      </div>
+      <section id="section-intake" class="section flow-step">
+        <div class="step-header" id="step-heading-intake" tabindex="-1">
+          <span class="step-number">01</span>
+          <h2>希望</h2>
+          <span class="step-status" id="step-status-intake"></span>
+        </div>
+        <div class="step-summary hidden" id="step-summary-intake">
+          <p id="step-summary-text-intake"></p>
+          <button
+            type="button"
+            class="text-button step-edit"
+            data-go="intake"
+            aria-expanded="false"
+            aria-controls="step-body-intake"
+          >
+            希望を編集する ↑
+          </button>
+        </div>
+        <div class="step-body" id="step-body-intake">
+          <div id="consultation" class="consultation">
+            <div class="section-intro">
+              <p class="eyebrow">LET’S FIND YOUR FIT</p>
+              <h2 tabindex="-1">まずは、<br />肌のことを少し。</h2>
+              <p>
+                うまく説明できなくても大丈夫。<br />気になることを、いつもの言葉で。
+              </p>
+            </div>
+            <div class="consultation-form">
+              <label for="intake-text">どんな1本を探していますか？</label>
+              <textarea
+                id="intake-text"
+                rows="4"
+                maxlength="1000"
+                placeholder="たとえば、乾燥による小じわが気になる。3,000円以内の美容液で、ベタつかないものがいい。"
+              ></textarea>
+              <div class="suggestions" aria-label="悩みの入力例">
+                <button data-concern="乾燥">乾燥</button
+                ><button data-concern="小じわ">小じわ</button
+                ><button data-concern="毛穴の目立ち">毛穴の目立ち</button
+                ><button data-concern="肌のくすみ">くすみ</button>
+              </div>
+              <div class="form-actions">
+                <button id="btn-demo-intake" class="text-button">
+                  入力例を使う</button
+                ><button id="btn-parse-intake" class="button primary">
+                  希望を整理する <span aria-hidden="true">↓</span>
+                </button>
+              </div>
+              <button id="btn-direct-input" class="text-button manual-link">
+                フォームに直接入力する
+              </button>
+              <div id="intake-result" class="hidden">
+                <div class="form-divider">
+                  <span class="eyebrow">YOUR PREFERENCES</span>
+                  <h3>この条件で探しましょう。</h3>
+                  <p class="note">違っているところは、ここで直せます。</p>
+                </div>
+                <form id="form-conditions" novalidate>
+                  <div class="form-grid">
+                    <div class="field">
+                      <label for="cond-concern-label"
+                        >いちばん気になること
+                        <span class="required">必須</span></label
+                      ><input
+                        id="cond-concern-label"
+                        maxlength="120"
+                        required
+                        placeholder="例：乾燥による小じわ"
+                      />
+                    </div>
+                    <div class="field">
+                      <label for="cond-category">探すアイテム</label
+                      ><select id="cond-category">
+                        <option value="serum">美容液</option>
+                        <option value="lotion">化粧水</option>
+                        <option value="emulsion">乳液</option>
+                        <option value="cream">クリーム</option>
+                        <option value="cleanser">クレンジング</option>
+                        <option value="sunscreen">日焼け止め</option>
+                        <option value="other">その他</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-grid">
+                    <div class="field">
+                      <label for="cond-budget">予算の上限（税込）</label>
+                      <div class="input-unit">
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          id="cond-budget"
+                          inputmode="numeric"
+                          placeholder="指定なし"
+                        /><span>円</span>
+                      </div>
+                    </div>
+                    <div class="field">
+                      <label for="cond-concern-note">ほかに気になること</label
+                      ><input
+                        id="cond-concern-note"
+                        placeholder="例：頬の乾燥も気になる"
+                      />
+                    </div>
+                  </div>
+                  <fieldset>
+                    <legend>使い心地の希望</legend>
+                    <label class="check"
+                      ><input
+                        type="checkbox"
+                        id="cond-avoid-sticky"
+                      />ベタつきにくさも重視したい</label
+                    >
+                    <div id="texture-preferences-list"></div>
+                    <label class="check"
+                      ><input
+                        type="checkbox"
+                        id="cond-require-texture"
+                      />使用感の情報が十分にある商品だけに絞る</label
+                    >
+                  </fieldset>
+                  <details class="form-extra">
+                    <summary>残したいもの・避けたい成分を指定</summary>
+                    <div class="field">
+                      <label for="cond-keep-note">残したいもの</label
+                      ><input
+                        id="cond-keep-note"
+                        placeholder="例：今の化粧水は使い続けたい"
+                      />
+                    </div>
+                    <div class="field">
+                      <label for="cond-avoid-ingredients">避けたい成分</label
+                      ><input
+                        id="cond-avoid-ingredients"
+                        placeholder="例：エタノール、香料"
+                      />
+                      <p class="note">
+                        複数ある場合は「、」かカンマで区切ってください。
+                      </p>
+                    </div>
+                  </details>
+                  <div id="followup-questions" class="soft-note hidden"></div>
+                  <button
+                    type="submit"
+                    id="btn-confirm-conditions"
+                    class="button primary wide"
+                  >
+                    次へ：いま使っているもの <span aria-hidden="true">↓</span>
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            id="cancel-edit-intake"
+            class="text-button cancel-edit hidden"
+          >
+            編集を取り消す
+          </button>
+        </div>
+      </section>
+
+      <section
+        id="section-inventory"
+        class="section flow-step inner-section hidden"
+      >
+        <div class="step-header" id="step-heading-inventory" tabindex="-1">
+          <span class="step-number">02</span>
+          <h2>手持ち</h2>
+          <span class="step-status" id="step-status-inventory"></span>
+        </div>
+        <div class="step-summary hidden" id="step-summary-inventory">
+          <p id="step-summary-text-inventory"></p>
+          <button
+            type="button"
+            class="text-button step-edit"
+            data-go="inventory"
+            aria-expanded="false"
+            aria-controls="step-body-inventory"
+          >
+            手持ちを編集する ↑
+          </button>
+        </div>
+        <div class="step-body" id="step-body-inventory">
+          <div class="page-heading">
+            <p class="eyebrow">YOUR EVERYDAY SHELF</p>
+            <h2 tabindex="-1">いまのケアも、<br />大切にしながら。</h2>
+            <p>
+              使っているものを教えてください。<br />成分の重なりや、次の1本の取り入れ方を調べます。
+            </p>
+          </div>
+          <div id="condition-summary" class="condition-summary"></div>
+          <div class="inventory-layout">
+            <div class="upload-panel">
+              <span class="line-icon" aria-hidden="true">⌑</span>
+              <h2>いつもの棚を、1枚。</h2>
+              <p>
+                ラベルが読める写真を選んでください。<br />読み取った商品名は、あとから直せます。
+              </p>
+              <label class="button primary upload-button" for="inventory-photo"
+                >写真を選ぶ <span aria-hidden="true">＋</span></label
+              ><input
+                type="file"
+                id="inventory-photo"
+                accept="image/jpeg,image/png,image/heic,image/heif,image/webp"
+              />
+              <p class="micro">JPEG・PNG・HEIC・WebP ／ 7MBまで</p>
+              <img
+                id="photo-preview"
+                class="photo-preview hidden"
+                alt="選んだ手持ち商品の写真"
+              />
+              <div class="upload-alternative">
+                <button id="btn-manual-input" class="text-button">
+                  商品名を手で入力する ↓</button
+                ><button id="btn-sample-owned" class="text-button">
+                  入力例を使う ↓
+                </button>
+              </div>
+            </div>
+            <div class="shelf-editor">
+              <div id="inventory-detection" class="soft-note hidden"></div>
+              <div id="owned-items-editor">
+                <div class="small-heading">
+                  <h2>手持ちのアイテム</h2>
+                  <span id="owned-count" class="micro">0 / 8</span>
+                </div>
+                <p class="note">商品名を確認して、「残したい」にチェックを。</p>
+                <div id="owned-items-list"></div>
+                <button id="btn-add-owned-row" class="text-button add-row">
+                  ＋ アイテムを追加する
+                </button>
+              </div>
+              <details id="catalog-details" class="hidden">
+                <summary>登録済みの例から選ぶ</summary>
+                <div id="catalog-list"></div>
+              </details>
+            </div>
+          </div>
+          <div class="bottom-actions">
+            <button data-go="intake" class="text-button">希望を見直す ↑</button
+            ><button id="btn-start-recommend" class="button primary">
+              次の1本を探す <span aria-hidden="true">↓</span>
+            </button>
+          </div>
+          <p class="note align-right">調査には1〜3分ほどかかります。</p>
+          <button
+            type="button"
+            id="cancel-edit-inventory"
+            class="text-button cancel-edit hidden"
+          >
+            編集を取り消す
+          </button>
+        </div>
+      </section>
+
+      <div
+        id="research-stage"
+        tabindex="-1"
+        aria-label="03 次の1本の調査と結果"
+      >
+        <p
+          id="research-announcement"
+          class="sr-only"
+          role="status"
+          aria-live="polite"
+        ></p>
+        <section
+          id="section-progress"
+          class="section flow-step inner-section hidden"
+        >
+          <div class="step-header">
+            <span class="step-number">03</span>
+            <h2>次の1本</h2>
+            <span class="step-status">調査中</span>
+          </div>
+          <div class="progress-layout">
+            <div class="progress-art" aria-hidden="true">
+              <span class="orbit"></span><span class="progress-letter">s.</span
+              ><span class="eyebrow">A MOMENT FOR YOUR SKIN</span>
+            </div>
+            <div>
+              <p class="eyebrow">FINDING YOUR FIT</p>
+              <h2 tabindex="-1">あなたの1本を、<br />たしかめています。</h2>
+              <p>
+                製品の成分や使い方、口コミを確認中です。<br />情報が揃ったら、選んだ理由と一緒にお届けします。
+              </p>
+              <p class="note">
+                目安 1〜3分 <span id="progress-elapsed"></span>
+              </p>
+              <ol
+                id="progress-list"
+                class="progress-list"
+                aria-live="polite"
+              ></ol>
+              <button id="btn-cancel" class="text-button">
+                中止して編集 ↑
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="section-candidates"
+          class="section flow-step inner-section hidden"
+        >
+          <div class="step-header" id="step-heading-candidates" tabindex="-1">
+            <span class="step-number">03</span>
+            <h2>次の1本</h2>
+            <span class="step-status" id="step-status-candidates"></span>
+          </div>
+          <div class="step-summary hidden" id="step-summary-candidates">
+            <p id="step-summary-text-candidates"></p>
+            <button
+              type="button"
+              class="text-button step-edit"
+              data-go="candidates"
+              aria-expanded="false"
+              aria-controls="step-body-candidates"
+            >
+              商品比較を開く ↑
+            </button>
+          </div>
+          <div class="step-body" id="step-body-candidates">
+            <div class="page-heading result-heading">
+              <div>
+                <p class="eyebrow">YOUR NEXT ONE</p>
+                <h2 tabindex="-1">次の1本に、<br />こんな選択を。</h2>
+              </div>
+              <button data-go="intake" class="text-button">
+                希望を見直す ↑
+              </button>
+            </div>
+            <div id="research-mode-banner" class="soft-note hidden"></div>
+            <div id="status-message" class="empty-state hidden"></div>
+            <div id="result-content">
+              <div class="result-controls">
+                <p id="result-conditions"></p>
+                <div
+                  class="priority-controls"
+                  role="group"
+                  aria-label="おすすめの優先順位"
+                >
+                  <button id="btn-priority-concern" aria-pressed="true">
+                    悩みとの関連</button
+                  ><button id="btn-priority-light" aria-pressed="false">
+                    ベタつきにくさ
+                  </button>
+                </div>
+              </div>
+              <p
+                id="rank-change-message"
+                class="note hidden"
+                aria-live="polite"
+              ></p>
+              <div id="candidates-list"></div>
+              <details class="research-details">
+                <summary>おすすめの順番は、どう決まる？</summary>
+                <p id="ranking-why" class="ranking-why"></p>
+              </details>
+              <div id="comparison"></div>
+            </div>
+            <div id="owned-analysis"></div>
+            <div id="search-suggestions" class="hidden"></div>
+          </div>
+        </section>
+      </div>
+      <section
+        id="section-routines"
+        class="section flow-step inner-section hidden"
+      >
+        <div class="step-header" id="step-heading-routines" tabindex="-1">
+          <span class="step-number">04</span>
+          <h2>使い方</h2>
+          <span class="step-status" id="step-status-routines"></span>
+        </div>
+        <div class="step-summary hidden" id="step-summary-routines">
+          <p id="step-summary-text-routines"></p>
+        </div>
+        <div class="step-body" id="step-body-routines">
+          <div class="page-heading">
+            <p class="eyebrow">MAKE IT YOUR EVERYDAY</p>
+            <h2 tabindex="-1">いつものケアに、<br />なじませる。</h2>
+            <p>選んだ1本を加えた、朝と夜の使い方の案です。</p>
+          </div>
+          <div
+            id="routine-adopt-banner"
+            class="soft-note hidden"
+            role="status"
+          ></div>
+          <div id="routines-container"></div>
+          <div class="bottom-actions">
+            <button data-go="candidates" class="text-button">
+              商品比較を開く ↑</button
+            ><button id="btn-adopt" class="button primary">
+              この組み合わせを選ぶ <span aria-hidden="true">✓</span>
+            </button>
+          </div>
+          <p class="note">
+            この画面内での選択です。購入や手持ち商品の登録は行いません。
+          </p>
+        </div>
+      </section>
+
+      <section id="about" class="about">
+        <p class="eyebrow">A THOUGHTFUL CHOICE</p>
+        <h2>選ぶ理由が、<br class="mobile-only" />ちゃんと見えること。</h2>
+        <div class="about-columns">
+          <p>
+            製品に書かれた効能、成分の一般的な知見、使った人の感想。それぞれを分けて、次の1本を考えます。
+          </p>
+          <p>
+            おすすめは、確認できた情報とあなたの希望の範囲での提案です。肌への効果や、刺激のなさを保証するものではありません。
+          </p>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer wrap">
+      <a href="/" class="wordmark">SkinFit<span class="brand-dot">.</span></a>
+      <p>新しい1本を、いつもの洗面台へ。</p>
+      <span class="micro">SKINCARE THAT FITS YOUR LIFE.</span>
+    </footer>
+  </body>
+</html>
