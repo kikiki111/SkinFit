@@ -3,10 +3,20 @@
 # GCPへの書き込みなので、実行前に必ず承認を得ること
 set -e
 cd "$(dirname "$0")/.." || exit 1
+# 会社のアカウントで操作しないよう、.env に書いた個人のgcloudアカウントに固定する
+ACCOUNT="$(sed -n "s/^SKINFIT_GCLOUD_ACCOUNT=//p" .env 2>/dev/null | head -n 1)"
+[ -n "$ACCOUNT" ] && export CLOUDSDK_CORE_ACCOUNT="$ACCOUNT"
 PROJECT="${SKINFIT_GCP_PROJECT:-winged-vigil-384014}"
 REGION="${SKINFIT_RUN_REGION:-asia-northeast1}"
 # Vertex AIを呼ぶ権限（roles/aiplatform.user）だけを持つ専用SA。既定のCompute SAは権限が広いため使わない
 SA="skinfit-run@${PROJECT}.iam.gserviceaccount.com"
+
+# GCPの準備（setup_gcp.sh）が済んでいるかを読み取りだけで確かめる。欠けたまま進むと gcloud が途中で止まる
+if [ -z "$(gcloud services list --enabled --project "$PROJECT" \
+      --filter="config.name=cloudbuild.googleapis.com" --format="value(config.name)" 2>/dev/null)" ] ||
+   ! gcloud iam service-accounts describe "$SA" --project "$PROJECT" >/dev/null 2>&1; then
+  echo "GCPの準備が済んでいません。承認を得てから ./scripts/setup_gcp.sh を実行してください"; exit 1
+fi
 
 ./scripts/check.sh
 
@@ -16,7 +26,8 @@ SECRETS=""
 for PAIR in SKINFIT_YAHOO_CLIENT_ID=skinfit-yahoo-client-id SKINFIT_RAKUTEN_APP_ID=skinfit-rakuten-app-id \
             SKINFIT_RAKUTEN_ACCESS_KEY=skinfit-rakuten-access-key; do
   NAME="${PAIR#*=}"
-  if gcloud secrets describe "$NAME" --project "$PROJECT" >/dev/null 2>&1; then
+  # --quiet: Secret Manager APIが無効なときの「有効にしますか」を聞かずに、無い扱いで進める
+  if gcloud secrets describe "$NAME" --project "$PROJECT" --quiet >/dev/null 2>&1; then
     SECRETS="${SECRETS:+$SECRETS,}${PAIR%%=*}=$NAME:latest"
   else
     echo "Secret Manager に $NAME が無いため、この値なしでデプロイします"
