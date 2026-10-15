@@ -1,0 +1,15 @@
+{
+  "note": "口コミの論点判定の正解（人が付けた）。SKINFIT_LIVE=1 でGeminiの判定と比べる",
+  "items": [
+    {"product_id": "cand_a", "review_id": "rv_cand_a_1", "aspect": "stickiness", "polarity": "negative"},
+    {"product_id": "cand_a", "review_id": "rv_cand_a_1", "aspect": "moisture", "polarity": "positive"},
+    {"product_id": "cand_a", "review_id": "rv_cand_a_3", "aspect": "stickiness", "polarity": "negative"},
+    {"product_id": "cand_a", "review_id": "rv_cand_a_5", "aspect": "stickiness", "polarity": "mixed"},
+    {"product_id": "cand_a", "review_id": "rv_cand_a_4", "aspect": "scent", "polarity": "positive"},
+    {"product_id": "cand_b", "review_id": "rv_cand_b_1", "aspect": "stickiness", "polarity": "positive"},
+    {"product_id": "cand_b", "review_id": "rv_cand_b_1", "aspect": "makeup", "polarity": "positive"},
+    {"product_id": "cand_b", "review_id": "rv_cand_b_2", "aspect": "moisture", "polarity": "negative"},
+    {"product_id": "cand_b", "review_id": "rv_cand_b_4", "aspect": "irritation", "polarity": "unknown"},
+    {"product_id": "cand_c", "review_id": "rv_cand_c_2", "aspect": "irritation", "polarity": "negative"}
+  ]
+}

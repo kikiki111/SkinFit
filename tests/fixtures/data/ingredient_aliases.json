@@ -1,0 +1,67 @@
+{
+  "data_version": "dummy",
+  "entries": [
+    {
+      "canonical": "ナイアシンアミド",
+      "aliases": [
+        "ニコチン酸アミド",
+        "Niacinamide"
+      ],
+      "inci": "Niacinamide",
+      "direction_ids": [
+        "niacinamide"
+      ]
+    },
+    {
+      "canonical": "セラミドNP",
+      "aliases": [
+        "セラミド3",
+        "Ceramide NP"
+      ],
+      "inci": "Ceramide NP",
+      "direction_ids": [
+        "hydration"
+      ]
+    },
+    {
+      "canonical": "ヒアルロン酸Na",
+      "aliases": [
+        "ヒアルロン酸ナトリウム",
+        "ヒアルロン酸Na-2"
+      ],
+      "inci": "Sodium Hyaluronate",
+      "direction_ids": [
+        "hydration"
+      ]
+    },
+    {
+      "canonical": "グリセリン",
+      "aliases": [
+        "濃グリセリン"
+      ],
+      "inci": "Glycerin",
+      "direction_ids": [
+        "hydration"
+      ]
+    },
+    {
+      "canonical": "レチノール",
+      "aliases": [
+        "Retinol"
+      ],
+      "inci": "Retinol",
+      "direction_ids": [
+        "retinoid"
+      ]
+    },
+    {
+      "canonical": "BG",
+      "aliases": [
+        "1,3-ブチレングリコール"
+      ],
+      "inci": "Butylene Glycol",
+      "direction_ids": []
+    }
+  ],
+  "is_dummy": true
+}

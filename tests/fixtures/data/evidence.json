@@ -1,0 +1,97 @@
+{
+  "data_version": "dummy",
+  "directions": [
+    {
+      "direction_id": "hydration",
+      "label": "保湿",
+      "concern": "fine_lines",
+      "summary": "ダミー：乾燥による小じわには保湿を検討する",
+      "member_ingredients": [
+        "セラミドNP",
+        "ヒアルロン酸Na",
+        "グリセリン"
+      ]
+    },
+    {
+      "direction_id": "retinoid",
+      "label": "レチノイド",
+      "concern": "fine_lines",
+      "summary": "ダミー：レチノールなど",
+      "member_ingredients": [
+        "レチノール"
+      ]
+    },
+    {
+      "direction_id": "niacinamide",
+      "label": "ナイアシンアミド",
+      "concern": "fine_lines",
+      "summary": "ダミー：ナイアシンアミド",
+      "member_ingredients": [
+        "ナイアシンアミド"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "ev_hydration",
+      "direction_id": "hydration",
+      "ingredient_names": [
+        "セラミドNP",
+        "ヒアルロン酸Na"
+      ],
+      "concern": "fine_lines",
+      "summary": "ダミーの一般知見（hydration）",
+      "scope": "ダミーの適用範囲",
+      "limitations": "配合量が分からない製品には当てはめられない",
+      "cautions": null,
+      "source": {
+        "source_id": "src_ev_hydration",
+        "url": "https://example.com/src_ev_hydration",
+        "title": "ダミー資料 hydration",
+        "publisher": "ダミー",
+        "checked_at": "2026-10-15"
+      },
+      "is_dummy": true
+    },
+    {
+      "evidence_id": "ev_retinoid",
+      "direction_id": "retinoid",
+      "ingredient_names": [
+        "レチノール"
+      ],
+      "concern": "fine_lines",
+      "summary": "ダミーの一般知見（retinoid）",
+      "scope": "ダミーの適用範囲",
+      "limitations": "配合量が分からない製品には当てはめられない",
+      "cautions": null,
+      "source": {
+        "source_id": "src_ev_retinoid",
+        "url": "https://example.com/src_ev_retinoid",
+        "title": "ダミー資料 retinoid",
+        "publisher": "ダミー",
+        "checked_at": "2026-10-15"
+      },
+      "is_dummy": true
+    },
+    {
+      "evidence_id": "ev_niacinamide",
+      "direction_id": "niacinamide",
+      "ingredient_names": [
+        "ナイアシンアミド"
+      ],
+      "concern": "fine_lines",
+      "summary": "ダミーの一般知見（niacinamide）",
+      "scope": "ダミーの適用範囲",
+      "limitations": "配合量が分からない製品には当てはめられない",
+      "cautions": null,
+      "source": {
+        "source_id": "src_ev_niacinamide",
+        "url": "https://example.com/src_ev_niacinamide",
+        "title": "ダミー資料 niacinamide",
+        "publisher": "ダミー",
+        "checked_at": "2026-10-15"
+      },
+      "is_dummy": true
+    }
+  ]
+}

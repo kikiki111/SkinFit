@@ -1,0 +1,301 @@
+{
+  "data_version": "dummy",
+  "products": [
+    {
+      "product_id": "own_lotion",
+      "is_dummy": true,
+      "role": "owned",
+      "demo_role": null,
+      "brand": "ダミー",
+      "maker": "ダミー",
+      "name": "ダミー保湿化粧水",
+      "variant": null,
+      "region": "JP",
+      "category": "lotion",
+      "regulatory_class": "cosmetic",
+      "active_ingredients": [],
+      "volume": {
+        "value": 30,
+        "unit": "mL"
+      },
+      "price_jpy_tax_included": 1650,
+      "price_note": "ダミー価格",
+      "price_source_id": "src_own_lotion",
+      "ingredients_full": [
+        "水",
+        "グリセリン",
+        "BG",
+        "ヒアルロン酸Na",
+        "フェノキシエタノール"
+      ],
+      "ingredients_source_id": "src_own_lotion",
+      "claims": [],
+      "maker_texture_description": null,
+      "texture_expectation": null,
+      "usage": {
+        "timing": [
+          "morning",
+          "night"
+        ],
+        "timing_strength": "recommended",
+        "order_note": "化粧水のあとに使用",
+        "amount_note": null,
+        "source_id": "src_own_lotion"
+      },
+      "cautions": [
+        "お肌に異常が生じていないかよく注意して使用してください"
+      ],
+      "sources": [
+        {
+          "source_id": "src_own_lotion",
+          "url": "https://example.com/src_own_lotion",
+          "title": "ダミー保湿化粧水（ダミー）",
+          "publisher": "ダミー",
+          "checked_at": "2026-10-15"
+        }
+      ],
+      "checked_at": "2026-10-15",
+      "data_version": "dummy",
+      "unknown": []
+    },
+    {
+      "product_id": "own_emulsion",
+      "is_dummy": true,
+      "role": "owned",
+      "demo_role": null,
+      "brand": "ダミー",
+      "maker": "ダミー",
+      "name": "ダミー乳液",
+      "variant": null,
+      "region": "JP",
+      "category": "emulsion",
+      "regulatory_class": "cosmetic",
+      "active_ingredients": [],
+      "volume": {
+        "value": 30,
+        "unit": "mL"
+      },
+      "price_jpy_tax_included": 1980,
+      "price_note": "ダミー価格",
+      "price_source_id": "src_own_emulsion",
+      "ingredients_full": [
+        "水",
+        "スクワラン",
+        "グリセリン",
+        "セラミドNP",
+        "フェノキシエタノール"
+      ],
+      "ingredients_source_id": "src_own_emulsion",
+      "claims": [],
+      "maker_texture_description": null,
+      "texture_expectation": null,
+      "usage": {
+        "timing": [
+          "morning",
+          "night"
+        ],
+        "timing_strength": "recommended",
+        "order_note": "化粧水のあとに使用",
+        "amount_note": null,
+        "source_id": "src_own_emulsion"
+      },
+      "cautions": [
+        "お肌に異常が生じていないかよく注意して使用してください"
+      ],
+      "sources": [
+        {
+          "source_id": "src_own_emulsion",
+          "url": "https://example.com/src_own_emulsion",
+          "title": "ダミー乳液（ダミー）",
+          "publisher": "ダミー",
+          "checked_at": "2026-10-15"
+        }
+      ],
+      "checked_at": "2026-10-15",
+      "data_version": "dummy",
+      "unknown": []
+    },
+    {
+      "product_id": "cand_a",
+      "is_dummy": true,
+      "role": "candidate",
+      "demo_role": "A",
+      "brand": "ダミー",
+      "maker": "ダミー",
+      "name": "ダミー濃密美容液A",
+      "variant": null,
+      "region": "JP",
+      "category": "serum",
+      "regulatory_class": "cosmetic",
+      "active_ingredients": [],
+      "volume": {
+        "value": 30,
+        "unit": "mL"
+      },
+      "price_jpy_tax_included": 2970,
+      "price_note": "ダミー価格",
+      "price_source_id": "src_cand_a",
+      "ingredients_full": [
+        "水",
+        "グリセリン",
+        "BG",
+        "セラミドNP",
+        "ヒアルロン酸Na",
+        "スクワラン"
+      ],
+      "ingredients_source_id": "src_cand_a",
+      "claims": [
+        {
+          "claim_id": "clm_cand_a_1",
+          "text": "乾燥による小ジワを目立たなくする（効能評価試験済み）",
+          "type": "efficacy_tested",
+          "concern_tags": [
+            "fine_lines",
+            "dryness"
+          ],
+          "source_id": "src_cand_a"
+        }
+      ],
+      "maker_texture_description": "とろみのある濃密なテクスチャー",
+      "texture_expectation": "heavy",
+      "usage": {
+        "timing": [
+          "morning",
+          "night"
+        ],
+        "timing_strength": "recommended",
+        "order_note": "化粧水のあとに使用",
+        "amount_note": null,
+        "source_id": "src_cand_a"
+      },
+      "cautions": [
+        "お肌に異常が生じていないかよく注意して使用してください"
+      ],
+      "sources": [
+        {
+          "source_id": "src_cand_a",
+          "url": "https://example.com/src_cand_a",
+          "title": "ダミー濃密美容液A（ダミー）",
+          "publisher": "ダミー",
+          "checked_at": "2026-10-15"
+        }
+      ],
+      "checked_at": "2026-10-15",
+      "data_version": "dummy",
+      "unknown": []
+    },
+    {
+      "product_id": "cand_b",
+      "is_dummy": true,
+      "role": "candidate",
+      "demo_role": "B",
+      "brand": "ダミー",
+      "maker": "ダミー",
+      "name": "ダミーさっぱり美容液B",
+      "variant": null,
+      "region": "JP",
+      "category": "serum",
+      "regulatory_class": "cosmetic",
+      "active_ingredients": [],
+      "volume": {
+        "value": 30,
+        "unit": "mL"
+      },
+      "price_jpy_tax_included": 2200,
+      "price_note": "ダミー価格",
+      "price_source_id": "src_cand_b",
+      "ingredients_full": [
+        "水",
+        "ナイアシンアミド",
+        "BG",
+        "グリセリン",
+        "フェノキシエタノール"
+      ],
+      "ingredients_source_id": "src_cand_b",
+      "claims": [],
+      "maker_texture_description": "みずみずしく軽いつけ心地",
+      "texture_expectation": "light",
+      "usage": {
+        "timing": [
+          "morning",
+          "night"
+        ],
+        "timing_strength": "recommended",
+        "order_note": "化粧水のあとに使用",
+        "amount_note": null,
+        "source_id": "src_cand_b"
+      },
+      "cautions": [
+        "お肌に異常が生じていないかよく注意して使用してください"
+      ],
+      "sources": [
+        {
+          "source_id": "src_cand_b",
+          "url": "https://example.com/src_cand_b",
+          "title": "ダミーさっぱり美容液B（ダミー）",
+          "publisher": "ダミー",
+          "checked_at": "2026-10-15"
+        }
+      ],
+      "checked_at": "2026-10-15",
+      "data_version": "dummy",
+      "unknown": []
+    },
+    {
+      "product_id": "cand_c",
+      "is_dummy": true,
+      "role": "candidate",
+      "demo_role": "C",
+      "brand": "ダミー",
+      "maker": "ダミー",
+      "name": "ダミーバランス美容液C",
+      "variant": null,
+      "region": "JP",
+      "category": "serum",
+      "regulatory_class": "cosmetic",
+      "active_ingredients": [],
+      "volume": {
+        "value": 30,
+        "unit": "mL"
+      },
+      "price_jpy_tax_included": 2750,
+      "price_note": "ダミー価格",
+      "price_source_id": "src_cand_c",
+      "ingredients_full": [
+        "水",
+        "BG",
+        "レチノール",
+        "グリセリン",
+        "スクワラン"
+      ],
+      "ingredients_source_id": "src_cand_c",
+      "claims": [],
+      "maker_texture_description": "なめらかで肌になじむ",
+      "texture_expectation": "medium",
+      "usage": {
+        "timing": [
+          "night"
+        ],
+        "timing_strength": "recommended",
+        "order_note": "化粧水のあとに使用",
+        "amount_note": null,
+        "source_id": "src_cand_c"
+      },
+      "cautions": [
+        "お肌に異常が生じていないかよく注意して使用してください"
+      ],
+      "sources": [
+        {
+          "source_id": "src_cand_c",
+          "url": "https://example.com/src_cand_c",
+          "title": "ダミーバランス美容液C（ダミー）",
+          "publisher": "ダミー",
+          "checked_at": "2026-10-15"
+        }
+      ],
+      "checked_at": "2026-10-15",
+      "data_version": "dummy",
+      "unknown": []
+    }
+  ]
+}
