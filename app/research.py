@@ -462,7 +462,7 @@ def _budget_text(conditions) -> str:
 
 
 def discover_prompt(conditions, directions: list[dict], owned: list, limit: int = 5) -> str:
-    """候補を探す検索の指示。関数ノード版（discover_candidates）とADKの探索Agentの両方が使う。"""
+    """候補を探す検索の指示。ADKの探索Agentと、別の種類のアイテムの検索（discover_other_step）の両方が使う。"""
     dir_text = "、".join(f"{d['label']}（{'・'.join(d['members'][:4])}）" for d in directions) or "保湿"
     prefs = "、".join(f"{ASPECT_LABELS.get(t.aspect, t.aspect)}を{'避けたい' if t.preference == 'avoid' else '重視'}" for t in conditions.texture_preferences) or "特になし"
     owned_names = "、".join(f"{p.brand} {p.name}" for p in owned) or "なし"
@@ -512,29 +512,6 @@ async def structure_discovery(conditions, g: GroundedResult, target_prefix: str 
                  f"条件に合う候補を{len(stubs)}件見つけました", details, "ok" if stubs else "failed")
     log_event("research_result", step="discover", found=[f"{x['brand']} {x['name']}" for x in stubs])
     return stubs, step
-
-
-async def discover_candidates(conditions, directions: list[dict], owned: list[Product], limit: int = 5) -> tuple[list[dict], list[Source], str | None]:
-    budget = _budget_text(conditions)
-    prompt = discover_prompt(conditions, directions, owned, limit)
-    g = await grounded(prompt, "discover")
-    out = await _structure(_DiscoveryOut, g, "見つかった候補を、本文に書かれている範囲で構造化してください。", conditions.concern_label)
-    discover_g = g
-    stubs = []
-    for c in out.candidates:
-        if not c.name:
-            continue
-        stubs.append({"brand": c.brand, "name": c.name, "category": _slug_ok_category(c.category, conditions.category),
-                      "price_jpy_tax_included": c.price_jpy_tax_included, "key_ingredients": c.key_ingredients,
-                      "claim_texts": c.claim_texts, "texture_note": c.texture_note,
-                      "sources": [s.model_dump() for s in _pick_sources(g, c.sources)]})
-    details = [f"{x['brand']} {x['name']}（{'税込' + format(x['price_jpy_tax_included'], ',') + '円' if x.get('price_jpy_tax_included') else '価格不明'}）"
-               + (f"：{'・'.join(x['key_ingredients'][:3])}" if x.get("key_ingredients") else "")
-               + ("、効能表示あり" if x.get("claim_texts") else "") for x in stubs]
-    step = _step("discover", f"{CATEGORY_LABEL.get(conditions.category, '美容液')}（{budget}）", discover_g,
-                 f"条件に合う候補を{len(stubs)}件見つけました", details, "ok" if stubs else "failed")
-    log_event("research_result", step="discover", found=[f"{x['brand']} {x['name']}" for x in stubs])
-    return stubs, g.sources, g.entry_point_html, step
 
 
 async def discover_other_step(conditions, direction: dict, owned: list, category: str, limit: int = 2):

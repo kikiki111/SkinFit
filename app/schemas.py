@@ -557,7 +557,7 @@ class ResearchStep(BaseModel):
 class Analysis(BaseModel):
     """/api/rerank へそのまま送り返す分析結果。サーバーは投稿IDを照合して検算する。"""
 
-    plan_directions: list[str] = []  # 調査計画で選ばれた方向性（direction_id）
+    plan_directions: list[str] = []  # この回で調べた方向性（direction_id）
     bundle: dict | None = None  # その場で調べた製品・口コミ（並べ替えのときにそのまま送り返す）
     review_findings: dict[str, dict[str, str]] = {}  # review_id -> {aspect: polarity}
     explanations: dict[str, Explanation] = {}  # product_id -> 説明
@@ -593,11 +593,16 @@ class RerankRequest(RecommendRequest):
     analysis: Analysis
 
 
+# 進捗画面の段階（並び順どおり）。web/app.js の progressStages の key と一致させる
+ProgressStage = Literal["owned", "discover", "compare", "finish"]
+
+
 class ProgressEvent(BaseModel):
     type: Literal["progress"] = "progress"
     node: str
     label: str
     status: Literal["running", "done", "failed", "skipped"]
+    stage: ProgressStage | None = None  # 画面はこの値だけで段階を表示する（ノード名は見ない）
 
 
 class ResultEvent(BaseModel):

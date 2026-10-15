@@ -10,53 +10,7 @@ from google.adk import Agent
 from pydantic import BaseModel
 
 from .. import gemini
-from ..catalog import Catalog
 from ..schemas import CandidateView, Conditions, Explanation, Reason
-
-# ---------- 調査計画（ADKのAgentノード） ----------
-
-
-class PlannedDirection(BaseModel):
-    direction_id: str
-    why: str
-
-
-class PlannerOutput(BaseModel):
-    directions: list[PlannedDirection]
-    needs_more_info: bool
-    questions: list[str]
-
-
-PLANNER_INSTRUCTION = """あなたはスキンケアの「次の1本」を選ぶための調査計画を作る担当です。
-入力のJSONには、本人の条件（conditions）、手持ちの成分の確認結果（owned_coverage）、登録済みの「ケアの方向性」（directions）が入っています。
-
-やること:
-1. 悩みに対して検討する方向性を、登録済みの directions の direction_id から最大3つ選び、優先する順に並べる。
-   手持ちで確認できない方向性と、手持ちで既に確認できる方向性の両方を検討してよい。新しい成分を増やすことそのものを目的にしない。
-2. 選んだ理由（why）を1文で書く。成分の一般的な知見を、個別製品の効果として書かない。
-3. 推薦に必要な情報が足りない場合だけ needs_more_info を true にし、本人への質問を questions に書く。
-   例：悩みの解釈が複数ある（乾燥による小じわか、など）。原因の診断や治療の選択はしない。
-
-禁止: 「治る」「必ず」「安全」「効く」「消える」などの断定。登録されていない direction_id を作ること。"""
-
-
-def planner_agent() -> Agent:
-    return Agent(
-        name="concern_planner",
-        model=gemini.adk_model("planner"),
-        instruction=PLANNER_INSTRUCTION,
-        output_schema=PlannerOutput,
-        generate_content_config=gemini.generate_config("planner"),
-    )
-
-
-def planner_input(cat: Catalog, conditions: Conditions, coverage: list[dict]) -> str:
-    return json.dumps({
-        "conditions": conditions.model_dump(),
-        "owned_coverage": [{k: c[k] for k in ("direction_id", "label", "status", "ingredients")} for c in coverage],
-        "directions": [{"direction_id": d.direction_id, "label": d.label, "summary": d.summary} for d in cat.directions.values()],
-    }, ensure_ascii=False)
-
 
 # ---------- 推薦理由（候補ごと） ----------
 

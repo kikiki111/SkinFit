@@ -77,12 +77,6 @@ async def good_explain(conditions, candidates, violations=None):
     return {c.product_id: Explanation(summary=f"{c.name}は検討できる候補です。") for c in candidates}
 
 
-def planner(ctx, node_input):
-    assert "owned_coverage" in node_input  # 手持ちの調査結果が計画に渡っている
-    return {"directions": [{"direction_id": d, "why": "テスト"} for d in ["hydration", "niacinamide"]],
-            "needs_more_info": False, "questions": []}
-
-
 async def fake_structure(conditions, g, target_prefix=""):
     """探索の構造化の代わり。方向性に関係なく fake_discover と同じ候補を返す。"""
     from app.schemas import ResearchStep
@@ -94,10 +88,8 @@ async def fake_structure(conditions, g, target_prefix=""):
 def live(monkeypatch):
     object.__setattr__(settings, "research_mode", "live")
     monkeypatch.setattr(research, "research_owned", fake_owned)
-    monkeypatch.setattr(research, "discover_candidates", fake_discover)
     monkeypatch.setattr(research, "structure_discovery", fake_structure)
     monkeypatch.setattr(research, "research_candidate", fake_candidate)
-    monkeypatch.setattr(agents, "planner_agent", lambda: planner)
     monkeypatch.setattr(agents, "select_agent", lambda: select_stub)
     monkeypatch.setattr(agents, "explain", good_explain)
     yield monkeypatch
@@ -159,8 +151,7 @@ def test_live_rerank_flips_using_bundle_without_search(live):
 def test_discovery_failure_falls_back_to_registered_candidates(live):
     async def broken(*a, **k):
         raise RuntimeError("search down")
-    live.setattr(research, "discover_candidates", broken)
-    live.setattr(research, "structure_discovery", broken)  # ADKの探索Agentの結果の整理も失敗させる
+    live.setattr(research, "structure_discovery", broken)  # ADKの探索Agentの結果の整理を失敗させる
 
     async def fake_extract(name, uniq):
         return {r.review_id: {"stickiness": "positive"} for r in uniq}
@@ -322,12 +313,14 @@ def test_select_agent_unknown_ids_are_dropped_and_fallback_is_used(live):
 
 
 def test_one_direction_leaves_other_discover_agents_skipped(live):
+    from types import SimpleNamespace
+
     from app.workflows import recommendation as wf
 
-    async def go():
-        node = wf._make_discover(1)
-        return await node(None, {"directions": [{"direction_id": "d1", "label": "保湿", "members": ["グリセリン"]}]})
-    assert asyncio.run(go())["status"] == "SKIPPED"
+    dirs = [{"direction_id": "d1", "label": "保湿", "members": ["グリセリン"]}]
+    ctx = SimpleNamespace(state={"prepared_directions": dirs})
+    assert wf._make_dir(1)(ctx, {"directions": dirs}) == wf.SKIP_PROMPT  # 2つめの探索エージェントには検索させない
+    assert asyncio.run(wf._make_discover_structure(1)(ctx, None))["status"] == "SKIPPED"
 
 
 def test_one_discover_agent_failure_does_not_stop_the_run(live):
@@ -410,7 +403,6 @@ def test_fallback_uses_only_demo_candidates(live):
 
     async def broken(*a, **k):
         raise RuntimeError("search down")
-    live.setattr(research, "discover_candidates", broken)
     live.setattr(research, "structure_discovery", broken)
 
     async def fake_extract(name, uniq):

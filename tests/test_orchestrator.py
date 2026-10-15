@@ -1,19 +1,17 @@
-"""orchestrator と Workflow の通し試験。Geminiはモックにする（計画・口コミ判定・説明）。"""
+"""orchestrator と Workflow の通し試験。Geminiはモックにする（選定・口コミ判定・説明）。"""
 
 import asyncio
+import re
+from pathlib import Path
+from typing import get_args
 
 import pytest
 
 from app import orchestrator, reviews
 from app.catalog import load
-from app.schemas import Explanation, LIGHT_PRIORITIES, RerankRequest
+from app.schemas import Explanation, LIGHT_PRIORITIES, ProgressStage, RerankRequest
 from app.workflows import agents
 from tests.helpers import demo_request, keyword_findings, select_stub
-
-
-def _planner_stub(ctx, node_input):
-    return {"directions": [{"direction_id": d, "why": "テスト"} for d in ["hydration", "niacinamide", "retinoid"]],
-            "needs_more_info": False, "questions": []}
 
 
 async def _fake_extract(name, uniq):
@@ -26,7 +24,6 @@ async def _good_explain(conditions, candidates, violations=None):
 
 @pytest.fixture
 def mocked(monkeypatch):
-    monkeypatch.setattr(agents, "planner_agent", lambda: _planner_stub)
     monkeypatch.setattr(agents, "select_agent", lambda: select_stub)
     monkeypatch.setattr(reviews, "extract_findings", _fake_extract)
     monkeypatch.setattr(agents, "explain", _good_explain)
@@ -49,6 +46,21 @@ def test_ready_with_llm_explanations(mocked):
     for n in ["prepare", "owned_research", "discover_1", "discover_2", "discover_3", "gather", "prepare_selection",
               "select_agent", "candidate_research", "ingredient_branch", "review_branch", "routine_branch", "join", "rank", "explain", "verify"]:
         assert n in nodes
+
+
+def test_progress_stages_cover_every_node_and_match_the_screen(mocked):
+    """進捗の段階の表（PROGRESS）・実際に送るノード・画面の段階がずれていない。ノードを増減したら、表も直す。"""
+    events, _ = _run(demo_request())
+    progress = [e for e in events if e.type == "progress"]
+    assert [e.node for e in progress if not e.stage] == []  # 表に書き忘れたノードは段階が付かない
+    assert {e.node for e in progress} == set(orchestrator.PROGRESS)  # 表に古い名前が残っていない
+    # 画面は「実行中」のノードが終わるまでその段階を光らせ続けるので、「実行中」を送ったノードには必ず終わりを送る
+    for i, e in enumerate(progress):
+        if e.status == "running":
+            assert any(x.node == e.node and x.status != "running" for x in progress[i + 1:]), e.node
+    app_js = (Path(__file__).resolve().parent.parent / "web" / "app.js").read_text(encoding="utf-8")
+    stages = re.search(r"const progressStages = \[(.*?)\];", app_js, re.S).group(1)
+    assert re.findall(r'key: "(\w+)"', stages) == list(get_args(ProgressStage))
 
 
 def test_injected_review_cannot_change_the_top(mocked):

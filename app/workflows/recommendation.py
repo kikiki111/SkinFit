@@ -41,12 +41,6 @@ def _cat(ctx) -> Catalog:
     return catalog_from_bundle(b) if b else load()
 
 
-def _note(ctx, text: str) -> None:
-    b = ctx.state.get("bundle") or {}
-    b.setdefault("notes", []).append(text)
-    ctx.state["bundle"] = b
-
-
 def _research_owned(base: Catalog, item, product_id: str):
     """登録商品に一致する手持ちはGoogle検索を省き、それ以外はその場で調べる。"""
     reg = find_registered(base, item.brand, item.name)
@@ -244,32 +238,6 @@ def _make_discover_structure(index: int):
     return discover
 
 
-def _make_discover(index: int):
-    """（関数ノード版）方向性 index 番目だけを探す。ADKの探索Agentを使わない構成で使う。"""
-
-    async def discover(ctx, node_input: dict) -> dict:
-        dirs = (node_input or {}).get("directions", [])
-        if index >= len(dirs) or settings.research_mode != "live":
-            return {"status": "SKIPPED", "index": index, "stubs": []}
-        d = dirs[index]
-        req = RecommendRequest.model_validate(ctx.state["request"])
-        owned_names = [SimpleNamespace(brand=i.brand or "", name=i.name) for i in req.owned_items]
-        t = time.time()
-        try:
-            stubs, _, entry, step = await research.discover_candidates(req.conditions, [d], owned_names, limit=3)
-        except Exception as e:  # noqa: BLE001
-            log_event("node_error", severity="ERROR", node=f"discover_{index + 1}", error=type(e).__name__)
-            return {"status": "FAILED", "index": index, "stubs": [], "label": d["label"]}
-        for st in stubs:
-            st["direction_id"], st["direction_label"] = d["direction_id"], d["label"]
-        step.target = f"{d['label']}：{step.target}"
-        log_event("node", node=f"discover_{index + 1}", direction=d["label"], stubs=len(stubs), ms=int((time.time() - t) * 1000))
-        return {"status": "OK", "index": index, "stubs": stubs, "label": d["label"], "entry": entry, "step": step.model_dump()}
-
-    discover.__name__ = f"discover_{index + 1}"
-    return discover
-
-
 def _stub_key(stub: dict) -> str:
     return (stub.get("brand", "") + stub["name"]).replace(" ", "").replace("　", "")
 
@@ -346,39 +314,6 @@ def _apply_selection(ctx, selection: dict | None) -> tuple[list[dict], str, list
             why = reasons.get(s.get("candidate_id"), "")
             notes.append(f"今回は調べない：{s.get('brand', '')} {s['name']}" + (f"（{why}）" if why else ""))
     return picked, how, notes
-
-
-async def candidate_discovery(ctx, node_input: dict) -> dict:
-    """方向性と予算に合う商品を、Google検索で探す。失敗したら登録済みの候補で代替する。"""
-    cat = _cat(ctx)
-    req = _req(ctx)
-    planned = [d.get("direction_id") for d in (node_input or {}).get("directions", [])]
-    directions = assemble.valid_directions(cat, planned)
-    out = {"directions": directions, "needs_more_info": bool((node_input or {}).get("needs_more_info")),
-           "questions": (node_input or {}).get("questions", [])[:2], "stubs": [], "mode": "live"}
-    if settings.research_mode != "live":
-        out["mode"] = "catalog"
-        return out
-    try:
-        dirs = [{"label": cat.directions[d].label, "members": cat.directions[d].member_ingredients} for d in directions]
-        owned = [cat.product(pid) for pid in req.owned_product_ids if pid in cat.products]
-        stubs, _, entry, step = await research.discover_candidates(req.conditions, dirs, owned)
-        out["stubs"], choose_notes = _choose(stubs, req.conditions, owned, settings.max_live_candidates)
-        step.details = step.details + choose_notes
-        b = ctx.state["bundle"]
-        if entry:
-            b["suggestions"].append(entry)
-        b.setdefault("research_log", []).append(step.model_dump())
-        ctx.state["bundle"] = b
-        if not out["stubs"]:
-            out["mode"] = "catalog_fallback"
-            _note(ctx, "検索で条件に合う候補を見つけられなかったため、登録済みの候補で推薦しています")
-    except Exception as e:  # noqa: BLE001
-        log_event("node_error", severity="ERROR", node="candidate_discovery", error=type(e).__name__)
-        out["mode"] = "catalog_fallback"
-        _note(ctx, "候補の検索に失敗したため、登録済みの候補で推薦しています")
-    log_event("node", node="candidate_discovery", mode=out["mode"], stubs=[s["name"] for s in out["stubs"]], directions=directions)
-    return out
 
 
 def other_step_plan(cat: Catalog, req: RecommendRequest, selection: dict | None, picked: list[dict]) -> dict | None:
@@ -477,7 +412,7 @@ async def candidate_research(ctx, node_input: dict) -> dict:
         "summary": ("選定エージェントが" if how == "agent" else "決まった規則で") + f"{len(stubs)}品を選びました",
         "details": sel_notes, "queries": [], "sources": []})
     node_input = {"stubs": stubs, "mode": pool_info.get("mode", "catalog_fallback"),
-                  "directions": pool_info.get("directions", []), "needs_more_info": False, "questions": []}
+                  "directions": pool_info.get("directions", [])}
     mode = node_input["mode"]
     if mode == "live":
         cond = _req(ctx).conditions
@@ -608,12 +543,10 @@ def rank(ctx, node_input: dict) -> dict:
         branch_status=branch_status, ingredient_info=ing.get("info"), routine_plans=rou.get("plans"),
         failed_review_products=set(rev.get("failed") or []),
     )
-    if search["questions"]:
-        result.follow_up_questions = search["questions"]
     result = attach_research(result, ctx.state.get("bundle"))
     log_event("node", node="rank", status=result.status, mode=result.research_mode,
               order=result.ranking.order if result.ranking else [], branch_status=branch_status)
-    return {"result": result.model_dump(), "needs_more_info": search["needs_more_info"], "directions": search["directions"]}
+    return {"result": result.model_dump(), "directions": search["directions"]}
 
 
 async def explain(ctx, node_input: dict) -> dict:

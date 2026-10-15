@@ -151,6 +151,38 @@ test("a failed HTTP request is recoverable", async () => {
     /調査を開始できません/,
   );
 });
+test("progress follows the server's stages, and parallel stages run together", () => {
+  const ctx = runtime();
+  const classes = () =>
+    Array.from(
+      ctx.document
+        .getElementById("progress-list")
+        .innerHTML.matchAll(/class="progress-item ([a-z]*)"/g),
+      (m) => m[1],
+    );
+  const send = (event) =>
+    vm.runInContext(`renderProgress(${JSON.stringify(event)})`, ctx);
+  vm.runInContext("progress = newProgress(); renderProgress({})", ctx);
+  assert.deepEqual(classes(), ["running", "", "", ""]);
+  send({ node: "intake_check", stage: "owned", status: "done" });
+  send({ node: "owned_research", stage: "owned", status: "running" });
+  send({ node: "prepare", stage: "discover", status: "running" });
+  assert.deepEqual(classes(), ["running", "running", "", ""]);
+  // Events without a known stage never change the screen.
+  send({ node: "old_node", status: "running" });
+  send({ node: "old_node", stage: "unknown", status: "running" });
+  assert.deepEqual(classes(), ["running", "running", "", ""]);
+  send({ node: "prepare", stage: "discover", status: "done" });
+  assert.deepEqual(classes(), ["running", "running", "", ""]);
+  send({ node: "owned_research", stage: "owned", status: "done" });
+  assert.deepEqual(classes(), ["done", "running", "", ""]);
+  send({ node: "candidate_research", stage: "compare", status: "running" });
+  assert.deepEqual(classes(), ["done", "done", "running", ""]);
+  send({ node: "candidate_research", stage: "compare", status: "done" });
+  // Some nodes only send "done"; that alone still moves the screen forward.
+  send({ node: "verify", stage: "finish", status: "done" });
+  assert.deepEqual(classes(), ["done", "done", "done", "running"]);
+});
 test("search data is escaped, including attribute quote delimiters", () => {
   const ctx = runtime();
   ctx.input = '<img src=x onerror="alert(1)">\'';

@@ -18,39 +18,38 @@ from . import assemble, explain_template, normalize, reviews, verify
 from .catalog import Catalog, catalog_from_bundle, load, search_candidates
 from .config import settings
 from .logging_utils import estimate_cost_usd, log_event, run_id_var, start_usage
-from .schemas import (concern_id_for, Explanation, ProgressEvent, RecommendationResult, RecommendRequest, RerankRequest,
-                      ResultEvent)
+from .schemas import (concern_id_for, Explanation, ProgressEvent, ProgressStage, RecommendationResult, RecommendRequest,
+                      RerankRequest, ResultEvent)
 from .workflows import agents
 from .workflows.recommendation import build_workflow
 
-LABELS = {
-    "intake_check": "商品と条件を確認",
-    "prepare": "調べる方向性を確認（小じわ以外は悩みに関わる成分をGoogle検索で調査）",
-    "owned_research": "手持ちの全成分をGoogle検索で調査",
-    "dir_1": "探索エージェント1に方向性1を渡す",
-    "dir_2": "探索エージェント2に方向性2を渡す",
-    "dir_3": "探索エージェント3に方向性3を渡す",
-    "discover_agent_1": "探索エージェント1（ADK）：方向性1の候補をGoogle検索で探索",
-    "discover_agent_2": "探索エージェント2（ADK）：方向性2の候補をGoogle検索で探索",
-    "discover_agent_3": "探索エージェント3（ADK）：方向性3の候補をGoogle検索で探索",
-    "discover_1": "探索エージェント1の結果を出典つきで整理",
-    "discover_2": "探索エージェント2の結果を出典つきで整理",
-    "discover_3": "探索エージェント3の結果を出典つきで整理",
-    "gather": "手持ちの調査と探索の結果をそろえる",
-    "prepare_selection": "予算・手持ちとの重複で候補を絞る",
-    "select_agent": "選定エージェント：手持ちを踏まえて詳しく調べる候補を選ぶ",
-    "candidate_discovery": "条件に合う商品をGoogle検索で探索",
-    "candidate_research": "候補の成分・効能表示・口コミをGoogle検索で調査",
-    "other_step_research": "探すアイテムで補えない方向性を、別の種類のアイテムでGoogle検索",
-    "concern_planner": "悩みと手持ちから調査方針を作成",
-    "candidate_search": "登録済みの製品から候補を抽出",
-    "ingredient_branch": "成分・製品表示と手持ちを照合",
-    "review_branch": "使用感の口コミを分析",
-    "routine_branch": "朝夜の配置を計算",
-    "join": "調査結果をそろえる",
-    "rank": "優先順位で候補を比較",
-    "explain": "推薦理由を作成",
-    "verify": "出典・数値・表現を照合",
+# 進捗を送るノードの一覧。ノード → (画面の段階, 表示名)
+# 画面はノード名を知らず、段階だけで表示する。段階の種類は web/app.js の progressStages と一致させる（test_orchestrator.py で検査）
+PROGRESS: dict[str, tuple[ProgressStage, str]] = {
+    "intake_check": ("owned", "商品と条件を確認"),
+    "owned_research": ("owned", "手持ちの全成分をGoogle検索で調査"),
+    "prepare": ("discover", "調べる方向性を確認（小じわ以外は悩みに関わる成分をGoogle検索で調査）"),
+    "dir_1": ("discover", "探索エージェント1に方向性1を渡す"),
+    "dir_2": ("discover", "探索エージェント2に方向性2を渡す"),
+    "dir_3": ("discover", "探索エージェント3に方向性3を渡す"),
+    "discover_agent_1": ("discover", "探索エージェント1（ADK）：方向性1の候補をGoogle検索で探索"),
+    "discover_agent_2": ("discover", "探索エージェント2（ADK）：方向性2の候補をGoogle検索で探索"),
+    "discover_agent_3": ("discover", "探索エージェント3（ADK）：方向性3の候補をGoogle検索で探索"),
+    "discover_1": ("discover", "探索エージェント1の結果を出典つきで整理"),
+    "discover_2": ("discover", "探索エージェント2の結果を出典つきで整理"),
+    "discover_3": ("discover", "探索エージェント3の結果を出典つきで整理"),
+    "gather": ("discover", "手持ちの調査と探索の結果をそろえる"),
+    "prepare_selection": ("discover", "予算・手持ちとの重複で候補を絞る"),
+    "select_agent": ("discover", "選定エージェント：手持ちを踏まえて詳しく調べる候補を選ぶ"),
+    "candidate_research": ("compare", "候補の成分・効能表示・口コミをGoogle検索で調査"),
+    "other_step_research": ("compare", "探すアイテムで補えない方向性を、別の種類のアイテムでGoogle検索"),
+    "ingredient_branch": ("compare", "成分・製品表示と手持ちを照合"),
+    "review_branch": ("compare", "使用感の口コミを分析"),
+    "routine_branch": ("compare", "朝夜の配置を計算"),
+    "join": ("compare", "調査結果をそろえる"),
+    "rank": ("finish", "優先順位で候補を比較"),
+    "explain": ("finish", "推薦理由を作成"),
+    "verify": ("finish", "出典・数値・表現を照合"),
 }
 APP_NAME = "skinfit"
 # 時間のかかる処理は、始まったことも画面に出す
@@ -60,7 +59,8 @@ NEXT_RUNNING = {"prepare": ["discover_agent_1", "discover_agent_2", "discover_ag
 
 
 def _progress(node: str, status: str = "done") -> ProgressEvent:
-    return ProgressEvent(node=node, label=LABELS.get(node, node), status=status)
+    stage, label = PROGRESS.get(node, (None, node))
+    return ProgressEvent(node=node, label=label, status=status, stage=stage)
 
 
 def _empty(cat: Catalog, status: str, message: str, **kw) -> RecommendationResult:
@@ -129,8 +129,9 @@ async def _run_recommend(req: RecommendRequest) -> AsyncIterator[ProgressEvent |
             runner = Runner(app_name=APP_NAME, agent=build_workflow(), session_service=session_service)
             session = await session_service.create_session(app_name=APP_NAME, user_id=run_id, state={"request": req.model_dump()})
             message = types.Content(role="user", parts=[types.Part(text="start")])
-            yield _progress("prepare", "running")
+            # 手持ちの調査を先に送る（後に送ると、画面で1段目が一瞬「完了」に見える）
             yield _progress("owned_research", "running")
+            yield _progress("prepare", "running")
             async for ev in runner.run_async(user_id=run_id, session_id=session.id, new_message=message):
                 node_info = getattr(ev, "node_info", None)
                 out = getattr(ev, "output", None)
@@ -162,9 +163,7 @@ async def _run_recommend(req: RecommendRequest) -> AsyncIterator[ProgressEvent |
     result = RecommendationResult.model_validate(final["result"])
     if result.analysis.bundle:
         cat = catalog_from_bundle(result.analysis.bundle)
-    if final.get("needs_more_info") and not final.get("directions") and result.follow_up_questions:
-        result = _empty(cat, "NEEDS_MORE_INFO", "推薦に必要な情報が足りません。", follow_up_questions=result.follow_up_questions)
-    elif not final.get("directions") and result.status == "NO_MATCH_IN_SCOPE":
+    if not final.get("directions") and result.status == "NO_MATCH_IN_SCOPE":
         result.status_message = ("悩みに関わる成分の方向性を、出典付きで確かめられなかったため、候補を絞り込めませんでした。"
                                  "時間をおいて試すか、悩みの書き方を変えてください。")
     explanations = {k: Explanation.model_validate(v) for k, v in (final.get("explanations") or {}).items()}

@@ -804,37 +804,32 @@ $("inventory-photo").addEventListener("change", async (e) => {
     }
   }
 });
+// 段階はサーバーが決めて進捗イベントの stage で送る（app/orchestrator.py の PROGRESS）。画面はノード名を持たない
 const progressStages = [
-  {
-    label: "手持ちの成分をたしかめる",
-    nodes: ["intake_check", "owned_research"],
-  },
-  {
-    label: "希望に合う商品を探す",
-    nodes: ["concern_planner", "candidate_discovery", "candidate_search"],
-  },
-  {
-    label: "成分・使い心地を比べる",
-    nodes: [
-      "candidate_research",
-      "other_step_research",
-      "ingredient_branch",
-      "review_branch",
-      "routine_branch",
-      "join",
-    ],
-  },
-  { label: "おすすめと使い方をまとめる", nodes: ["rank", "explain", "verify"] },
+  { key: "owned", label: "手持ちの成分をたしかめる" },
+  { key: "discover", label: "希望に合う商品を探す" },
+  { key: "compare", label: "成分・使い心地を比べる" },
+  { key: "finish", label: "おすすめと使い方をまとめる" },
 ];
-let progressIndex = 0;
+// 手持ちの調査と候補の探索は同時に走るため、実行中のノードがある段階はすべて「実行中」にする
+const newProgress = () => ({
+  reached: 0,
+  running: progressStages.map(() => new Set()),
+});
+let progress = newProgress();
 function renderProgress(event) {
-  const index = progressStages.findIndex((s) => s.nodes.includes(event.node));
-  if (index >= 0) progressIndex = Math.max(progressIndex, index);
+  const index = progressStages.findIndex((s) => s.key === event.stage);
+  if (index >= 0) {
+    progress.reached = Math.max(progress.reached, index);
+    if (event.status === "running") progress.running[index].add(event.node);
+    else progress.running[index].delete(event.node);
+  }
   $("progress-list").innerHTML = progressStages
-    .map(
-      (s, i) =>
-        `<li class="progress-item ${i < progressIndex ? "done" : i === progressIndex ? "running" : ""}">${esc(s.label)}</li>`,
-    )
+    .map((s, i) => {
+      const running = progress.running[i].size > 0 || i === progress.reached;
+      const cls = running ? "running" : i < progress.reached ? "done" : "";
+      return `<li class="progress-item ${cls}">${esc(s.label)}</li>`;
+    })
     .join("");
 }
 $("btn-start-recommend").addEventListener("click", async () => {
@@ -865,9 +860,9 @@ $("btn-start-recommend").addEventListener("click", async () => {
   const controller = new AbortController();
   state.request = controller;
   state.busy = true;
-  progressIndex = 0;
+  progress = newProgress();
   $("research-announcement").textContent = "";
-  renderProgress({ node: "intake_check" });
+  renderProgress({}); // 最初のイベントが届く前から、1段目を「実行中」で描く
   showSection("progress");
   const start = Date.now();
   const interval = setInterval(() => {

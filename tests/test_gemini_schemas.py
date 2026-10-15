@@ -57,7 +57,7 @@ SCHEMAS = _gemini_schemas()
 
 def test_schemas_are_collected_from_every_call_style():
     # generate_json の直接呼び出し・_structure 経由・ADKの output_schema= の3通りを拾えていること
-    assert {"app.workflows.agents._IntakeOutput", "app.research._FactsOut", "app.workflows.agents.PlannerOutput"} <= set(SCHEMAS)
+    assert {"app.workflows.agents._IntakeOutput", "app.research._FactsOut", "app.workflows.agents.SelectOutput"} <= set(SCHEMAS)
 
 
 @pytest.mark.parametrize("name", sorted(SCHEMAS))

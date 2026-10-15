@@ -33,4 +33,7 @@ echo "秘密情報：見つかりませんでした"
 echo "== 4. 画面のJavaScriptの構文"
 node --check web/app.js
 
+echo "== 5. 画面のテスト（進捗の段階・エスケープ・通信の扱い）"
+node --test tests/frontend.test.mjs
+
 echo "== すべての検査に通りました"
