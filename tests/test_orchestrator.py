@@ -9,6 +9,7 @@ import pytest
 
 from app import orchestrator, reviews
 from app.catalog import load
+from app.config import settings
 from app.schemas import Explanation, LIGHT_PRIORITIES, ProgressStage, RerankRequest
 from app.workflows import agents
 from tests.helpers import demo_request, keyword_findings, select_stub
@@ -61,6 +62,46 @@ def test_progress_stages_cover_every_node_and_match_the_screen(mocked):
     app_js = (Path(__file__).resolve().parent.parent / "web" / "app.js").read_text(encoding="utf-8")
     stages = re.search(r"const progressStages = \[(.*?)\];", app_js, re.S).group(1)
     assert re.findall(r'key: "(\w+)"', stages) == list(get_args(ProgressStage))
+
+
+def _record_logs(monkeypatch) -> list[dict]:
+    logs: list[dict] = []
+    monkeypatch.setattr(orchestrator, "log_event", lambda event, **fields: logs.append({"event": event, **fields}))
+    return logs
+
+
+def test_timeout_halts_and_is_logged(mocked):
+    """時間の上限に達したら HALTED を返し、終了と費用をログに残す（上限が二重だったころは、ログを出す側が通らなかった）。"""
+    logs = _record_logs(mocked)
+
+    async def slow_explain(conditions, candidates, violations=None):
+        await asyncio.sleep(30)
+    mocked.setattr(agents, "explain", slow_explain)
+    saved = settings.request_timeout_sec
+    object.__setattr__(settings, "request_timeout_sec", 1.0)
+    try:
+        _, res = _run(demo_request())
+    finally:
+        object.__setattr__(settings, "request_timeout_sec", saved)
+    assert res.status == "HALTED" and "処理時間の上限（1秒）" in res.status_message
+    end = next(x for x in logs if x["event"] == "recommend")
+    assert (end["status"], end["reason"], end["last_node"]) == ("HALTED", "timeout", "explain")
+    assert any(x["event"] == "usage" for x in logs)
+
+
+def test_run_without_final_result_is_halted_and_logged(mocked):
+    """説明ノードが結果を持たずに終わったら HALTED を返し、終わったノードの一覧つきでログに残す。"""
+    from app.workflows import recommendation as wf
+
+    logs = _record_logs(mocked)
+
+    def explain(ctx, node_input):
+        return {"explain_status": "FAILED"}
+    mocked.setattr(wf, "explain", explain)
+    _, res = _run(demo_request())
+    assert res.status == "HALTED"
+    end = next(x for x in logs if x["event"] == "recommend")
+    assert end["reason"] == "incomplete" and "rank" in end["nodes"]
 
 
 def test_injected_review_cannot_change_the_top(mocked):

@@ -17,7 +17,7 @@ from google.genai import types
 from . import assemble, explain_template, normalize, reviews, verify
 from .catalog import Catalog, catalog_from_bundle, load, search_candidates
 from .config import settings
-from .logging_utils import estimate_cost_usd, log_event, run_id_var, start_usage
+from .logging_utils import estimate_cost_usd, log_event, run_id_var, start_usage, usage_var
 from .schemas import (concern_id_for, Explanation, ProgressEvent, ProgressStage, RecommendationResult, RecommendRequest,
                       RerankRequest, ResultEvent)
 from .workflows import agents
@@ -123,34 +123,30 @@ async def _run_recommend(req: RecommendRequest) -> AsyncIterator[ProgressEvent |
         return
 
     outputs: dict[str, dict] = {}
+    # 時間の上限は run_recommend の1か所だけで当てる（ここにも張ると、先に切れる外側だけが働き、こちらのログが出ない）
     try:
-        async with asyncio.timeout(settings.request_timeout_sec):
-            session_service = InMemorySessionService()
-            runner = Runner(app_name=APP_NAME, agent=build_workflow(), session_service=session_service)
-            session = await session_service.create_session(app_name=APP_NAME, user_id=run_id, state={"request": req.model_dump()})
-            message = types.Content(role="user", parts=[types.Part(text="start")])
-            # 手持ちの調査を先に送る（後に送ると、画面で1段目が一瞬「完了」に見える）
-            yield _progress("owned_research", "running")
-            yield _progress("prepare", "running")
-            async for ev in runner.run_async(user_id=run_id, session_id=session.id, new_message=message):
-                node_info = getattr(ev, "node_info", None)
-                out = getattr(ev, "output", None)
-                if node_info is None or out is None:
-                    continue
-                node = str(node_info.path).split("/")[-1].split("@")[0]
-                outputs[node] = out
-                # ADKのAgentノード（探索エージェント）は終わりの記録に結果が載らないため、後ろの整理ノードが終わった時点で完了にする
-                if node.startswith("discover_") and not node.startswith("discover_agent_"):
-                    yield _progress(node.replace("discover_", "discover_agent_"))
-                # 別の種類のアイテムの案は、条件を満たさなければ検索しない。そのときは「省略」と出す
-                skipped = node == "other_step_research" and isinstance(out, dict) and out.get("status") == "SKIPPED"
-                yield _progress(node, "skipped" if skipped else "done")
-                for nxt in NEXT_RUNNING.get(node, []):
-                    yield _progress(nxt, "running")
-    except TimeoutError:
-        log_event("recommend", severity="ERROR", run_id=run_id, status="HALTED", reason="timeout")
-        yield ResultEvent(result=_empty(cat, "HALTED", f"処理時間の上限（{int(settings.request_timeout_sec)}秒）に達したため、推薦を完成できませんでした。"))
-        return
+        session_service = InMemorySessionService()
+        runner = Runner(app_name=APP_NAME, agent=build_workflow(), session_service=session_service)
+        session = await session_service.create_session(app_name=APP_NAME, user_id=run_id, state={"request": req.model_dump()})
+        message = types.Content(role="user", parts=[types.Part(text="start")])
+        # 手持ちの調査を先に送る（後に送ると、画面で1段目が一瞬「完了」に見える）
+        yield _progress("owned_research", "running")
+        yield _progress("prepare", "running")
+        async for ev in runner.run_async(user_id=run_id, session_id=session.id, new_message=message):
+            node_info = getattr(ev, "node_info", None)
+            out = getattr(ev, "output", None)
+            if node_info is None or out is None:
+                continue
+            node = str(node_info.path).split("/")[-1].split("@")[0]
+            outputs[node] = out
+            # ADKのAgentノード（探索エージェント）は終わりの記録に結果が載らないため、後ろの整理ノードが終わった時点で完了にする
+            if node.startswith("discover_") and not node.startswith("discover_agent_"):
+                yield _progress(node.replace("discover_", "discover_agent_"))
+            # 別の種類のアイテムの案は、条件を満たさなければ検索しない。そのときは「省略」と出す
+            skipped = node == "other_step_research" and isinstance(out, dict) and out.get("status") == "SKIPPED"
+            yield _progress(node, "skipped" if skipped else "done")
+            for nxt in NEXT_RUNNING.get(node, []):
+                yield _progress(nxt, "running")
     except Exception as e:  # noqa: BLE001  API障害など
         log_event("recommend", severity="ERROR", run_id=run_id, status="HALTED", error=type(e).__name__)
         yield ResultEvent(result=_empty(cat, "HALTED", "AIの呼び出しに失敗したため、推薦を完成できませんでした。時間をおいて試してください。"))
@@ -158,6 +154,7 @@ async def _run_recommend(req: RecommendRequest) -> AsyncIterator[ProgressEvent |
 
     final = outputs.get("explain") or {}
     if "result" not in final:
+        log_event("recommend", severity="ERROR", run_id=run_id, status="HALTED", reason="incomplete", nodes=list(outputs))
         yield ResultEvent(result=_empty(cat, "HALTED", "調査の途中で処理が終わったため、推薦を完成できませんでした。"))
         return
     result = RecommendationResult.model_validate(final["result"])
@@ -220,13 +217,32 @@ def run_rerank(req: RerankRequest) -> RecommendationResult:
 
 
 async def run_recommend(req: RecommendRequest) -> AsyncIterator[ProgressEvent | ResultEvent]:
-    """説明の再生成と照合も含めてリクエスト全体の上限を適用する。"""
+    """説明の再生成と照合も含めて、リクエスト全体に時間の上限を1つだけ当てる。
+
+    上限は次のイベントを作っている間だけに当て、画面へ送っている間（yield の後）には当てない。
+    送っている最中に上限が来ると、取り消しが送信側の処理に届き、結果を返せないまま接続が切れるため。
+    """
+    t0 = time.time()
+    deadline = asyncio.get_running_loop().time() + settings.request_timeout_sec
     stream = _run_recommend(req)
+    last_node = None
     try:
-        async with asyncio.timeout(settings.request_timeout_sec):
-            async for event in stream:
-                yield event
+        while True:
+            try:
+                async with asyncio.timeout_at(deadline):
+                    event = await anext(stream)
+            except StopAsyncIteration:
+                break
+            if event.type == "progress":
+                last_node = event.node
+            yield event
     except TimeoutError:
-        yield ResultEvent(result=_empty(load(), "HALTED", "調査の時間上限に達しました。条件を見直すか、時間をおいてもう一度お試しください。"))
+        ms = int((time.time() - t0) * 1000)
+        # run_id は _run_recommend が設定済みで、log_event が自動で付ける
+        log_event("recommend", severity="ERROR", status="HALTED", reason="timeout", last_node=last_node, ms=ms)
+        if usage := usage_var.get():  # 時間切れでも、それまでの費用は記録する
+            log_event("usage", **usage, est_cost_usd=estimate_cost_usd(usage), ms=ms)
+        yield ResultEvent(result=_empty(load(), "HALTED", f"処理時間の上限（{int(settings.request_timeout_sec)}秒）に達したため、"
+                                        "推薦を完成できませんでした。条件を見直すか、時間をおいてもう一度お試しください。"))
     finally:
         await stream.aclose()
